@@ -1,0 +1,23 @@
+.sidebar {
+  max-width: 45%;
+}
+
+.post {
+  text-align: justify;
+}
+
+.panel-heading {
+  text-align: center;
+}
+
+.has-jax {
+  font: inherit; 
+  font-size: 100%;
+  background: inherit;
+  color: inherit;
+  border: inherit;
+  padding: inherit;
+  border-radius: inherit;
+  white-space: inherit;
+  box-sizing: inherit; 
+}
