@@ -1,139 +1,93 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <head>
     <meta charset="utf-8">
-    <title>New Site</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <link href="./css/bootstrap_readable.min.css" rel="stylesheet">
-    <link href="./css/default.css" rel="stylesheet">
-    <link href="./css/custom.css" rel="stylesheet">
-    
-	<script type="text/x-mathjax-config">
-	MathJax.Hub.Config({
-	  extensions: ["tex2jax.js"],
-	  jax: ["input/TeX","output/HTML-CSS"],
-	  tex2jax: {inlineMath: [["$","$"],["\\(","\\)"]]}
-	});
-	</script>
-	<script type="text/javascript" async
-	  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js">
-	</script>
-</head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Additional notes on linear regression.">
+    <title>Notes</title>
+    <link rel="stylesheet" href="css/site.css">
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"]],
+          displayMath: [["\\[", "\\]"]]
+        }
+      };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  </head>
   <body>
-    <div class="navbar navbar">
-      <div class="container">
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="index.html">Sithan Kanna</a>
-        </div>
-        <!---
-        <div class="collapse navbar-collapse">
-          <ul class="nav navbar-nav">
-            <li class="active"><a href="#">Home</a></li>
-          </ul>
-        </div>
-        !-->
+    <header class="site-header">
+      <div class="shell">
+        <a class="site-name" href="index.html">Notes</a>
       </div>
-    </div>
+    </header>
 
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Topics">
+        <nav>
+          <h2>Main Topic 1</h2>
+          <a aria-current="page" href="AFE_Topic1.html">Linear Regression</a>
 
-    <div class="row-fluid">
-      <div class="container"> 
-        <div class="col-xs-9">
-          <h3>Linear Regression</h3>
-<hr>
-<!---<p class="meta">28 Aug 2013</p>--->
+          <h2>Supervised Neural Networks</h2>
+          <span>Multi-Layer Neural Networks</span>
+          <span>Exercise: Supervised Neural Network</span>
+        </nav>
+      </aside>
 
-<div class="post">
-<h3 id="problem_formulation">New lines - drivers</h3>
+      <article>
+        <h1>Linear Regression</h1>
 
+        <section>
+          <h2 id="new-lines-drivers">New lines - drivers</h2>
 
-<p>This can be a link: <a href="http://linkedin.com/in/sithan">Lecture Note</a> on Supervised Learning for more.</p>
-<p>\[
-\left( \sum_{k=1}^n a_k b_k \right)^{\!\!2} \leq
- \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)
-\]</p>
+          <p class="equation">
+            \[
+            \left( \sum_{k=1}^n a_k b_k \right)^{\!\!2} \leq
+            \left( \sum_{k=1}^n a_k^2 \right)
+            \left( \sum_{k=1}^n b_k^2 \right)
+            \]
+          </p>
 
-<p>This is something else</p>
+          <p>This is something else.</p>
+        </section>
 
-<h3 id="exercise_2a_linear_regression">Heading 2    </h3>
+        <section>
+          <h2 id="exercise-2a-linear-regression">Heading 2</h2>
 
-<p>This is the first paragraph.</p>
+          <p>This is the first paragraph.</p>
+          <p>In the <code>ex1/</code></p>
 
-<p>In the <code>ex1/</code></p>
+          <ol>
+            <li>
+              The data is loaded from <code>housing.data</code>. An extra
+              <code>1</code> feature is added to the dataset so that
+              \(\theta_1\) will act as an intercept term in the linear
+              function.
+            </li>
+          </ol>
 
-<ol>
-<li>
-<p>The data is loaded from <code>housing.data</code>. An extra ‘1’ feature is added to the dataset so that \(\theta_1\) will act as an intercept term in the linear function.</p>
-</li>
-</ol>
+          <p>
+            Once you complete the exercise successfully, the resulting plot
+            should look something like the one below:
+          </p>
 
-<p>Once you complete the exercise successfully, the resulting plot should look something like the one below:</p>
+          <img
+            class="article-image"
+            src="assets/Fork.png"
+            alt="Example plot produced by the exercise"
+            width="417"
+            height="417"
+          >
 
-<p><img src="./assets/Fork.png"></p>
+          <p>
+            Yours may look slightly different depending on the random choice
+            of training and testing sets. Typical values for the RMS training
+            and testing error are between 4.5 and 5.
+          </p>
+        </section>
+      </article>
 
-<p>(Yours may look slightly different depending on the random choice of training and testing sets.) Typical values for the RMS training and testing error are between 4.5 and 5.</p>
-</div>
-
-         </div>
-        <div class="col-xs-3 sidebar">
-          <div id="sidebar-holder"><div class="panel panel-default"><div class="panel-heading">Main Topic 1</div>
-              <a href="AFE_Topic1.html" class="list-group-item nav active">Linear Regression</a>
-              <a href="http://google.com"class="list-group-item nav">Logistic Regression</a>
-              
-
-              <div class="panel-heading">Supervised Neural Networks</div>
-              <a href="http://google.com" class="list-group-item nav">Multi-Layer Neural Networks</a>
-              <a href="http://google.com" class="list-group-item nav">Exercise: Supervised Neural Network</a>
-              
-              
-           </div></div>
-        </div>
-      </div>
-    </div>
-
-
-
-    
-
-
-
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="./js/jquery.js"></script>
-    <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="./js/bootstrap.min.js"></script>
-    <!-- <script>
-      var inputs = document.getElementsByTagName("m");
-      for (var i = 0; i < inputs.length; i++) { 
-        wrap = '$$';
-        if (inputs[i].parentNode.nodeName.toLowerCase() == 'p' || 
-        inputs[i].parentNode.nodeName.toLowerCase() == 'li')  {
-          wrap = '$'
-        }
-        inputs[i].textContent = wrap + inputs[i].textContent + wrap;
-      }
-    </script> -->
-    <!-- <script>
-      MathJax.Hub.Config({
-        tex2jax: {
-          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
-          inlineMath: [ ['$','$'], ["\\(","\\)"] ]
-        }
-      });
-      MathJax.Hub.Queue(function() {
-        var all = MathJax.Hub.getAllJax(), i;
-        for(i=0; i < all.length; i += 1) {
-          all[i].SourceElement().parentNode.className += 'has-jax';
-        }
-      });
-    </script> -->
-    
-  
-
-
-<div style="position: absolute; width: 0px; height: 0px; overflow: hidden; padding: 0px; border: 0px; margin: 0px;"><div id="MathJax_Font_Test" style="position: absolute; visibility: hidden; top: 0px; left: 0px; width: auto; padding: 0px; border: 0px; margin: 0px; white-space: nowrap; text-align: left; text-indent: 0px; text-transform: none; line-height: normal; letter-spacing: normal; word-spacing: normal; font-size: 40px; font-weight: normal; font-style: normal; font-family: STIXSizeOneSym, sans-serif;"></div></div></body></html>
+    </main>
+  </body>
+</html>
