@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 160" width="480" height="160" font-family="Georgia, 'Times New Roman', serif" fill="#252825" role="img" aria-label="Embedding step: U_t (t by d_vocab) times W_E (d_vocab by d_emb) equals X_t (t by d_emb)">
+  <!-- dimension brace over U_t -->
+  <g stroke="#252825" stroke-width="0.9" fill="none">
+    <path d="M50,46 L50,50 M50,46 L160,46 M160,46 L160,50 M105,46 L105,42"/>
+    <path d="M258,46 L258,50 M258,46 L302,46 M302,46 L302,50 M280,46 L280,42"/>
+  </g>
+  <text x="105" y="36" text-anchor="middle" font-size="10"><tspan font-style="italic">d</tspan><tspan font-size="8" dy="2">vocab</tspan><tspan dy="-2" font-size="10"> (Sparse, e.g. 50,000)</tspan></text>
+  <text x="280" y="36" text-anchor="middle" font-size="10"><tspan font-style="italic">d</tspan><tspan font-size="8" dy="2">emb</tspan><tspan dy="-2" font-size="10"> (Dense, e.g. 768)</tspan></text>
+
+  <!-- U_t -->
+  <rect x="50" y="60" width="110" height="56" rx="3" fill="#ececea" stroke="#9aa09a"/>
+  <text x="105" y="86" text-anchor="middle" font-size="14" font-weight="bold" font-style="italic">U<tspan font-size="9" font-weight="normal" dy="3">t</tspan></text>
+  <text x="105" y="102" text-anchor="middle" font-size="9.5" fill="#686e68"><tspan font-style="italic">t</tspan> &#215; <tspan font-style="italic">d</tspan><tspan font-size="7.5" dy="2">vocab</tspan></text>
+
+  <text x="172" y="93" text-anchor="middle" font-size="15" font-weight="bold">&#215;</text>
+
+  <!-- W_E -->
+  <rect x="186" y="33" width="44" height="110" rx="3" fill="#e8f0fa" stroke="#3f6fa0"/>
+  <text x="208" y="86" text-anchor="middle" font-size="14" font-weight="bold" font-style="italic">W<tspan font-size="9" font-weight="normal" dy="3">E</tspan></text>
+  <text x="208" y="102" text-anchor="middle" font-size="9" fill="#686e68"><tspan font-style="italic">d</tspan><tspan font-size="7" dy="2">vocab</tspan><tspan dy="-2"> &#215; </tspan><tspan font-style="italic">d</tspan><tspan font-size="7" dy="2">emb</tspan></text>
+
+  <text x="244" y="93" text-anchor="middle" font-size="15" font-weight="bold">=</text>
+
+  <!-- X_t -->
+  <rect x="258" y="60" width="44" height="56" rx="3" fill="#ececea" stroke="#9aa09a"/>
+  <text x="280" y="86" text-anchor="middle" font-size="14" font-weight="bold" font-style="italic">X<tspan font-size="9" font-weight="normal" dy="3">t</tspan></text>
+  <text x="280" y="102" text-anchor="middle" font-size="9" fill="#686e68"><tspan font-style="italic">t</tspan> &#215; <tspan font-style="italic">d</tspan><tspan font-size="7" dy="2">emb</tspan></text>
+</svg>

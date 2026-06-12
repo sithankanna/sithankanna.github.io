@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 162" width="470" height="162" font-family="Georgia, 'Times New Roman', serif" fill="#252825" role="img" aria-label="Softmax step: each row of logits Z_t is squashed row-wise into a probability distribution Y-hat_t that sums to 1">
+  <!-- top braces -->
+  <g stroke="#252825" stroke-width="0.9" fill="none">
+    <path d="M40,40 L40,44 M40,40 L150,40 M150,40 L150,44 M95,40 L95,36"/>
+    <path d="M300,40 L300,44 M300,40 L410,40 M410,40 L410,44 M355,40 L355,36"/>
+  </g>
+  <text x="95" y="30" text-anchor="middle" font-size="9.5"><tspan font-style="italic">d</tspan><tspan font-size="7.5" dy="2">vocab</tspan><tspan dy="-2"> (Logits)</tspan></text>
+  <text x="355" y="30" text-anchor="middle" font-size="9.5"><tspan font-style="italic">d</tspan><tspan font-size="7.5" dy="2">vocab</tspan><tspan dy="-2"> (Probabilities, &#8721;=1)</tspan></text>
+
+  <!-- Z_t box -->
+  <rect x="40" y="48" width="110" height="56" rx="3" fill="#ececea" stroke="#9aa09a"/>
+  <g font-size="8" text-anchor="middle">
+    <rect x="48" y="56" width="16" height="13" rx="1.5" fill="#e3edf8" stroke="#7d93ad"/><text x="56" y="65"><tspan font-style="italic">z</tspan><tspan font-size="6" dy="2">1</tspan></text>
+    <rect x="66" y="56" width="16" height="13" rx="1.5" fill="#e3edf8" stroke="#7d93ad"/><text x="74" y="65"><tspan font-style="italic">z</tspan><tspan font-size="6" dy="2">2</tspan></text>
+    <rect x="84" y="56" width="16" height="13" rx="1.5" fill="#e3edf8" stroke="#7d93ad"/><text x="92" y="65"><tspan font-style="italic">z</tspan><tspan font-size="6" dy="2">3</tspan></text>
+    <text x="112" y="65">&#8943;</text>
+    <rect x="122" y="56" width="18" height="13" rx="1.5" fill="#e3edf8" stroke="#7d93ad"/><text x="131" y="65"><tspan font-style="italic">z</tspan><tspan font-size="6" dy="2">V</tspan></text>
+  </g>
+  <text x="95" y="95" text-anchor="middle" font-size="9" fill="#686e68"><tspan font-style="italic">t</tspan> &#215; <tspan font-style="italic">d</tspan><tspan font-size="7" dy="2">vocab</tspan></text>
+  <text x="95" y="120" text-anchor="middle" font-size="13" font-weight="bold" font-style="italic">Z<tspan font-size="9" font-weight="normal" dy="3">t</tspan></text>
+
+  <!-- softmax arrow -->
+  <line x1="152" y1="76" x2="298" y2="76" stroke="#252825" stroke-width="1.1" marker-end="url(#ahsm)"/>
+  <defs>
+    <marker id="ahsm" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6.5,3 L0,6 Z" fill="#252825"/></marker>
+  </defs>
+  <text x="225" y="68" text-anchor="middle" font-size="11">softmax</text>
+  <text x="225" y="90" text-anchor="middle" font-size="9.5" fill="#686e68">(row-wise)</text>
+
+  <!-- Y_hat box -->
+  <rect x="300" y="48" width="110" height="56" rx="3" fill="#ececea" stroke="#9aa09a"/>
+  <g font-size="8" text-anchor="middle">
+    <rect x="308" y="56" width="16" height="13" rx="1.5" fill="#dcefdc" stroke="#6aa06a"/><text x="316" y="65"><tspan font-style="italic">p</tspan><tspan font-size="6" dy="2">1</tspan></text>
+    <rect x="326" y="56" width="16" height="13" rx="1.5" fill="#dcefdc" stroke="#6aa06a"/><text x="334" y="65"><tspan font-style="italic">p</tspan><tspan font-size="6" dy="2">2</tspan></text>
+    <rect x="344" y="56" width="16" height="13" rx="1.5" fill="#dcefdc" stroke="#6aa06a"/><text x="352" y="65"><tspan font-style="italic">p</tspan><tspan font-size="6" dy="2">3</tspan></text>
+    <text x="372" y="65">&#8943;</text>
+    <rect x="382" y="56" width="18" height="13" rx="1.5" fill="#dcefdc" stroke="#6aa06a"/><text x="391" y="65"><tspan font-style="italic">p</tspan><tspan font-size="6" dy="2">V</tspan></text>
+  </g>
+  <text x="355" y="95" text-anchor="middle" font-size="9" fill="#686e68"><tspan font-style="italic">t</tspan> &#215; <tspan font-style="italic">d</tspan><tspan font-size="7" dy="2">vocab</tspan></text>
+  <text x="355" y="120" text-anchor="middle" font-size="12"><tspan font-weight="bold" font-style="italic">&#375;</tspan><tspan font-size="8" dy="3">&#8467;,:</tspan><tspan dy="-3"> = </tspan><tspan font-style="italic">P</tspan>(<tspan font-style="italic">u</tspan><tspan font-size="8" dy="2">&#8467;+1</tspan><tspan dy="-2"> | </tspan><tspan font-style="italic">u</tspan><tspan font-size="8" dy="2">&#8804;&#8467;</tspan><tspan dy="-2">)</tspan></text>
+</svg>

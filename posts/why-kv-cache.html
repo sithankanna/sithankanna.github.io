@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A from-scratch derivation of why transformers cache the Key and Value tensors during autoregressive generation, but not the Query.">
+    <title>Why KV Cache and Not QKV Cache?</title>
+    <link rel="stylesheet" href="../css/site.css">
+    <script src="../js/mathjax-config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script defer src="../js/toc.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell">
+        <a class="site-name" href="../index.html">Sithan Kanna</a>
+      </div>
+    </header>
+
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Contents">
+        <nav>
+          <h2>Contents</h2>
+          <a href="#math-setup">1. Mathematical Setup</a>
+          <a class="toc-sub" href="#embedding">1.1 The Embedding Step</a>
+          <a class="toc-sub" href="#unembedding">1.2 The Unembedding Step</a>
+          <a class="toc-sub" href="#softmax">1.3 The Softmax Step</a>
+          <a href="#one-layer">2. 1-Layer Transformer</a>
+          <a href="#first-pass">3. The First Full Forward Pass</a>
+          <a href="#working-backwards">4. Working Backwards: Why KV Cache?</a>
+          <a href="#why-not-q">5. Why Not Cache Q?</a>
+          <a href="#loop">6. The Whole Cached Generation Loop</a>
+          <a href="#layernorm">7. LayerNorm, Residuals &amp; Positions</a>
+          <a href="#batch">8. The Batch Dimension</a>
+        </nav>
+      </aside>
+
+      <article class="post-body">
+        <h1>Why \(\K\V\) Cache and Not \(\Q\K\V\) Cache?</h1>
+        <p class="post-meta">June 2026</p>
+
+        <p>
+          In autoregressive token generation, a model's goal is to produce a
+          sequence of tokens for a given set of input tokens. This works by:
+        </p>
+        <ol style="list-style-type: lower-roman;">
+          <li>generating a single token from the input (e.g., prompt from a user);</li>
+          <li>appending the generated token to the original input;</li>
+          <li>repeating the process in step (i) with the expanded input from step (ii);</li>
+          <li>continuing the process until a complete sequence of tokens is produced.</li>
+        </ol>
+
+        <p>
+          The process of propagating the entire input repeatedly for every
+          subsequent token generation is extremely wasteful. Suppose there are
+          \(T_\text{out}\) output tokens in a sequence. Under a naive approach,
+          the input tokens propagate through the transformer \(T_{\text{out}}\)
+          times, while previously generated tokens propagate anywhere between
+          \(1\) and \(T_{\text{out}}-1\) times.
+        </p>
+
+        <p>The core insight that allows us to avoid this redundancy is twofold:</p>
+        <ol>
+          <li>Significant parts of the transformer operate on individual tokens
+            (or representations of a token, e.g., token embeddings) independently.</li>
+          <li>After a certain number of internal processing steps, the latent
+            variable within the transformer corresponding to the <em>last</em> token
+            contains all the necessary information to predict the next token.</li>
+        </ol>
+
+        <p>
+          Using a 1-layer transformer with a single-head attention block, you
+          will see that caching the key and value tensors, \(\K\) and \(\V\),
+          from the attention mechanism is enough to avoid doing a forward pass on
+          an ever-expanding set of input tokens. After an initial forward pass
+          with the input tokens, we only need to propagate the <em>latest</em>
+          generated output token through the transformer for subsequent sequence
+          generations.
+        </p>
+
+        <h2 class="section" id="math-setup">Mathematical Setup</h2>
+        <p>
+          Let \(\U_{\text{orig}, t}\) be a tensor containing the sequence of
+          input tokens, with \(\U_{\text{id}, t}\) the corresponding token ids,
+          where \(t\) denotes the context length of the input sequence.
+        </p>
+        <p>
+          Instead of starting the model with the token ID representation,
+          \(\U_{\text{id}, t}\), we will use the one-hot encoding of the input as
+          our starting point: \(\U_t \in \mathbb{R}^{t \times d_{\text{vocab}}}\),
+          where \(t\) is the current context length, \(T_{\max}\) is the maximum
+          context length, and \(d_{\text{vocab}}\) is the vocabulary size.
+        </p>
+
+        <div style="text-align: center; margin: 1.5rem 0;">
+          \(
+          \U_{\text{orig}, t} = \begin{bmatrix} \text{`Hello'} \\ \text{` world'} \\ \text{`!'} \end{bmatrix}
+          \implies
+          \U_{\text{id}, t} = \begin{bmatrix} 21 \\ 4 \\ 108 \end{bmatrix}
+          \implies
+          \U_t =
+          \)
+          <img class="inline-fig" src="../assets/figures/onehot-matrix.svg" alt="One-hot encoded input matrix with t rows and d_vocab columns" width="160">
+        </div>
+
+        <p>
+          <strong>Note on Vector Orientation:</strong> Throughout this tutorial,
+          to make the matrix multiplications intuitive, <strong>all individual
+          token vectors are treated as row vectors</strong>. For example, a single
+          one-hot token is a \(1 \times d_{\text{vocab}}\) row vector. For the
+          sake of clarity, we will ignore the Batch dimension for now (we will
+          reintroduce it at the end).
+        </p>
+
+        <p>
+          The model is set up as follows: the forward pass takes an input of
+          dimension \(t \times d_{\text{vocab}}\) and produces a prediction tensor
+          \(\hat{\Y}_t\) of the <em>same</em> shape, \(t \times d_{\text{vocab}}\).
+          See the example in <a href="#fig-0layer">Fig. 1</a>, where the input,
+        </p>
+        \[
+        \U_t = \begin{bmatrix}
+        \rowbar & \us_1 & \rowbar \\
+        \rowbar & \us_2 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \us_t & \rowbar
+        \end{bmatrix}_{t \times d_{\text{vocab}}},
+        \]
+        <p>produces a prediction tensor of the exact same shape:</p>
+        \[
+        \hat{\Y}_t = \begin{bmatrix}
+        \rowbar & \hat{\ys}_1 & \rowbar \\
+        \rowbar & \hat{\ys}_2 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \hat{\ys}_t & \rowbar
+        \end{bmatrix}_{t \times d_{\text{vocab}}}
+        \]
+        <p>
+          Because we are predicting the <em>next</em> token, the model is trained
+          so that the probability distribution \(\hat{\Y}_t\) matches the actual
+          next tokens. Therefore, our target (the teaching signal) for
+          \(\hat{\Y}_t\) is simply the input sequence, \(\U_t\) shifted one step
+          into the future. To avoid overloading \(\U_{t+1}\), we denote this
+          shifted target by \(\U^{\text{tgt}}_t\):
+        </p>
+        \[
+        \U^{\text{tgt}}_t = \begin{bmatrix}
+        \rowbar & \us_2 & \rowbar \\
+        \rowbar & \us_3 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \us_{t+1} & \rowbar
+        \end{bmatrix}_{t \times d_{\text{vocab}}}
+        \]
+        <p>
+          Each row in the final prediction matrix represents the probability
+          distribution over the vocabulary for the next token:
+          \(\hat{\Y}_{\ell,:} = \hat{\ys}_{\ell} = P(\us_{\ell+1} \mid \us_{\leq \ell})\)
+          for \(\ell \in 1, \dots, t\).
+        </p>
+
+        <p>
+          Before we get tangled in self-attention, let's look at the absolute
+          simplest setup: a &ldquo;0-Layer Transformer&rdquo;, see
+          <a href="#fig-0layer">Figure 1</a>. This is essentially a Bigram model.
+          It does no mixing between tokens. Its only job is to map a sparse
+          one-hot input to a dense embedding, and then immediately blow it back up
+          into vocabulary probabilities.
+        </p>
+
+        <figure class="fig" id="fig-0layer">
+          <img src="../assets/figures/fig-0layer.svg" alt="0-Layer Transformer: input U_t passes through embedding W_E and unembedding W_U, then softmax to produce Y-hat_t" width="560">
+          <figcaption><span class="fig-label">Figure 1.</span> 0-Layer Transformer.</figcaption>
+        </figure>
+
+        <h3 class="subsection" id="embedding">The Embedding Step (Reducing Columns)</h3>
+        <p>
+          Our input matrix \(\U_t\) has dimensions \(t \times d_{\text{vocab}}\).
+          Each row is a token, represented as a sparse vector filled with zeros
+          and a single \(1\).
+        </p>
+        \[
+        \us_1 = \begin{bmatrix} 0 & 0 & \dots & 1 & \dots & 0 \end{bmatrix}
+        \]
+        <p>
+          When we multiply \(\U_t\) by the embedding matrix
+          \(\W_E \in \mathbb{R}^{d_{\text{vocab}} \times d_{\text{emb}}}\), the
+          math effectively &ldquo;plucks out&rdquo; a specific row from \(\W_E\).
+          Notice how this operation keeps the number of rows (sequence length
+          \(t\)) exactly the same, but drastically reduces the number of columns
+          (from \(d_{\text{vocab}}\) down to \(d_{\text{emb}}\)).
+        </p>
+
+        <figure class="fig" id="fig-embedding">
+          <img src="../assets/figures/fig-embedding.svg" alt="Embedding step: U_t times W_E equals X_t, reducing columns from d_vocab to d_emb" width="480">
+          <figcaption><span class="fig-label">Figure 2.</span> The Embedding Step: squishing the columns.</figcaption>
+        </figure>
+
+        <h3 class="subsection" id="unembedding">The Unembedding Step (Expanding Columns)</h3>
+        <p>
+          To get back to probabilities, we need to convert our dense
+          representations \(\X_t\) back into vocabulary dimensions. We do this by
+          multiplying by the unembedding matrix
+          \(\W_U \in \mathbb{R}^{d_{\text{emb}} \times d_{\text{vocab}}}\). This
+          expands the columns back out to match the vocabulary size, producing
+          logits \(\Z_t\).
+        </p>
+
+        <figure class="fig" id="fig-unembedding">
+          <img src="../assets/figures/fig-unembedding.svg" alt="Unembedding step: X_t times W_U equals Z_t logits, expanding columns back to d_vocab" width="420">
+          <figcaption><span class="fig-label">Figure 3.</span> The Unembedding Step: blowing the columns back up.</figcaption>
+        </figure>
+
+        <h3 class="subsection" id="softmax">The Softmax Step (Row-wise Probabilities)</h3>
+        <p>
+          Finally, a softmax function is applied to the logit matrix \(\Z_t\) to
+          squash the unbounded numbers into valid probabilities, yielding our
+          final prediction tensor \(\hat{\Y}_t\).
+        </p>
+        <p>
+          Crucially, this softmax operates <em>strictly on a row-by-row basis</em>.
+          The operation looks exclusively at the \(d_{\text{vocab}}\) discrete
+          logits for a single token row and normalizes them so they sum to
+          exactly 1.
+        </p>
+
+        <figure class="fig" id="fig-softmax">
+          <img src="../assets/figures/fig-softmax.svg" alt="Softmax step: each row of logits in Z_t is normalized row-wise into a probability distribution in Y-hat_t that sums to 1" width="470">
+          <figcaption>
+            <span class="fig-label">Figure 4.</span> The Softmax Step: each row of
+            logits is squashed <em>independently</em> into a probability
+            distribution that sums to 1. The boxes are the same
+            \(t \times d_{\text{vocab}}\) tensor used in the Unembedding step; one
+            representative row of cells is shown.
+          </figcaption>
+        </figure>
+
+        <p>
+          Because there is no attention mechanism here, the probability
+          distribution \(P(\us_{t+1} \mid \us_{\leq t}) = P(\us_{t+1} \mid \us_{t})\),
+          depends <em>exclusively</em> on token \(\us_t\). Tokens \(1 \dots t-1\)
+          do absolutely nothing to influence the prediction of token \(t+1\).
+        </p>
+
+        <h2 class="section" id="one-layer">1-Layer Transformer</h2>
+        <p>
+          Next, we step up to a single-head 1-layer Transformer. The full forward
+          pass looks like this:
+        </p>
+        \[
+        \U_t \xrightarrow{} \left[ \W_E \xrightarrow{} \underbrace{\textsf{Self-Attn}(\cdot) \xrightarrow{} \textsf{FF}(\cdot)}_{\text{1-Layer Transformer}} \xrightarrow{} \W_U \right] \xrightarrow{} \textsf{softmax}(\cdot) \xrightarrow{} \hat{\Y}_t
+        \]
+        <p>See <a href="#fig-1layer">Fig. 5</a>.</p>
+
+        <h4>Single-Headed Causal Self-Attention</h4>
+        <p>The standard causal self-attention formula is given by</p>
+        \begin{align}
+        \textsf{Self-Attn}(\X_t) = {} & \textsf{softmax}\left(\frac{\Q_t \K^\T_t }{\sqrt{d_\text{head}}} + \M \right)\V_t \label{eq:self-attn}
+        \end{align}
+        <p>
+          where the query, key, and value matrices are respectively given by
+          \(\Q_t = \X_t \W_Q\), \(\K_t = \X_t \W_K\), and \(\V_t = \X_t \W_V\).
+        </p>
+        <p>
+          The Q/K/V projections themselves are row-wise linear maps. For each
+          position \(\ell\),
+        </p>
+        \[
+        \qs_{\ell} = \xs_{\ell}\W_Q, \qquad \ks_{\ell} = \xs_{\ell}\W_K, \qquad \vs_{\ell} = \xs_{\ell}\W_V.
+        \]
+        <p>
+          So \(\ks_{\ell}\) depends only on \(\xs_{\ell}\) and \(\W_K\), not on any
+          other token row. This row-wise nature of the projections is the local
+          reason an old key or value does not change merely because a new token is
+          appended.
+        </p>
+        <p>
+          For the simplified single-head case in this tutorial, we set
+          \(d_{\text{head}} = d_{\text{emb}}\) and omit the attention output
+          projection. More generally, the learnable QKV weight matrices have
+          shape<a class="footnote-ref" id="fnref1" href="#fn1"><sup>1</sup></a>
+        </p>
+        \[
+        \W_Q, \W_K, \W_V \in \mathbb{R}^{d_{\text{emb}} \times d_{\text{head}}}.
+        \]
+        <p>
+          In the single-head simplification used here, this reduces to
+          \(d_{\text{emb}} \times d_{\text{emb}}\).
+        </p>
+        <p>
+          The matrix \(\M \in \mathbb{R}^{t \times t}\) is a constant
+          (non-learnable) additive mask to the scaled dot-product attention, which
+          ensures tokens can only attend to previous tokens:
+        </p>
+        \[
+        \M_{ij} = \begin{cases} 0 & \text{if } i \ge j \\ -\infty & \text{if } i < j \end{cases}
+        \]
+        <p>
+          That is, the matrix \(\M\) has zeros on and below the diagonal, and
+          \(-\infty\) elsewhere:
+        </p>
+        \[
+        \M = \begin{bmatrix}
+        0 & -\infty & -\infty & \cdots & -\infty \\
+        0 & 0 & -\infty & \cdots & -\infty \\
+        \vdots & \vdots & \ddots & \ddots & \vdots \\
+        0 & 0 & 0 & \cdots & 0
+        \end{bmatrix}
+        \]
+        <p>
+          We are generating tokens autoregressively, meaning the model isn't
+          allowed to peek into the future. By adding \(-\infty\) to the upper
+          triangular elements <em>before</em> the softmax, those positions become
+          \(e^{-\infty} = 0\) <em>after</em> the softmax. This completely zeros out
+          the attention weights for future tokens. Token 3 can only attend to
+          tokens 1, 2, and 3. The Self-Attention equation in
+          \(\eqref{eq:self-attn}\) is slightly different because the causal mask is
+          represented using an addition of a constant matrix \(\M\). I represent
+          the causal mask as an additive constant matrix \(\M\) to keep the
+          notation close to the standard scaled dot-product attention formula while
+          preserving the logic of the procedure.
+        </p>
+
+        <h4>Feed forward</h4>
+        <p>Next, the feed-forward layer is defined as:</p>
+        \begin{align}
+        \textsf{FF}\left(\X_t \right) = {} & \sigma\left(\X_t\W_{\uparrow} + \bs_{\uparrow} \right)\W_{\downarrow} + \bs_{\downarrow}
+        \end{align}
+        <p>
+          where \(\sigma\) is an element-wise non-linearity, such as
+          \(\textsf{ReLU}(\cdot)\).
+        </p>
+
+        <figure class="fig" id="fig-1layer">
+          <img src="../assets/figures/fig-1layer.svg" alt="Detailed 1-Layer Transformer architecture with a Self-Attention block (stacked W_V, W_K, W_Q) and a Feed-forward block (W_up, sigma, W_down), wrapped by embedding and unembedding inside the model, followed by softmax and output Y-hat_t" width="520">
+          <figcaption><span class="fig-label">Figure 5.</span> Detailed 1-Layer Transformer Architecture.</figcaption>
+        </figure>
+
+        <p>
+          The first thing to notice is that not every operation in the Transformer
+          actually mixes information across tokens. A surprising amount of the
+          model works row-by-row (i.e. on a per-token basis).
+        </p>
+        <p>Let's list the operations that work on a strictly token-by-token basis:</p>
+        <ol>
+          <li>Embedding step via \(\W_E\)</li>
+          <li>Unembedding step via \(\W_U\)</li>
+          <li>Softmax producing the probability tensor per token</li>
+          <li>\(\textsf{FF}\) (Feed-Forward) Layer</li>
+          <li>LayerNorm and Residuals</li>
+          <li>Positional encodings, once added to each token position</li>
+        </ol>
+        <p>
+          None of the items above need to look sideways at the other tokens. They
+          don't ask: &ldquo;what came before me?&rdquo; or &ldquo;what came after
+          me?&rdquo; They just take one token representation, do some computation
+          on that row, and move on.
+        </p>
+        <p>
+          <strong>The Attention mechanism is the only place where information
+          across tokens is mixed.</strong>
+        </p>
+        <p>During training, we usually care about every row of the output:</p>
+        \[
+        \hat{\Y}_t = \begin{bmatrix}
+        \rowbar & \hat{\ys}_1 & \rowbar \\
+        \rowbar & \hat{\ys}_2 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \hat{\ys}_t & \rowbar
+        \end{bmatrix}
+        \]
+        <p>where each row tries to predict the next token:</p>
+        \[
+        \hat{\ys}_{\ell} = P(\us_{\ell+1} \mid \us_{\leq \ell}).
+        \]
+        <p>
+          But during autoregressive generation, after we have processed the
+          prompt, we only care about the <em>last</em> row:
+        </p>
+        \[
+        \hat{\ys}_{t} = P(\us_{t+1} \mid \us_{\leq t}).
+        \]
+        <p>
+          This last row is what we use to sample the next token. Recall, the
+          statement in the introduction of how a sequence of tokens is generated
+          (naively):
+        </p>
+        <ol>
+          <li>Start with the prompt tokens \(\us_1, \dots, \us_t\).</li>
+          <li>Do one full forward pass through the model.</li>
+          <li>Use the final row \(\hat{\ys}_t\) to predict/sample the next token \(\hat{\us}_{t+1}\).</li>
+          <li>Append \(\hat{\us}_{t+1}\) back into the input sequence, forming \(\U_{t+1}\).</li>
+          <li>Now try to predict \(\us_{t+2}\).</li>
+        </ol>
+        <p>This last step is where the caching explanation actually starts to matter.</p>
+
+        <h2 class="section" id="first-pass">The First Full Forward Pass</h2>
+        <p>Suppose our current input is</p>
+        \[
+        \U_t = \begin{bmatrix}
+        \rowbar & \us_1 & \rowbar \\
+        \rowbar & \us_2 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \us_t & \rowbar
+        \end{bmatrix}.
+        \]
+        <p>We run the full model once:</p>
+        \[ \U_t \xrightarrow{\textsf{model}} \hat{\Y}_t. \]
+        <p>The final row gives us:</p>
+        \[ \hat{\ys}_t = P(\us_{t+1} \mid \us_{\leq t}). \]
+        <p>Then we sample or choose the next token:</p>
+        \[ \hat{\us}_{t+1} \sim \hat{\ys}_t. \]
+        <p>At this point, we append the newly generated token to the old sequence:</p>
+        \[
+        \U_{t+1} = \begin{bmatrix}
+        \rowbar & \us_1 & \rowbar \\
+        \rowbar & \us_2 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \us_t & \rowbar \\
+        \rowbar & \hat{\us}_{t+1} & \rowbar
+        \end{bmatrix}.
+        \]
+        <p>
+          Naively, to predict the next token after that, \(\us_{t+2}\), we would
+          run the whole expanded sequence through the model again:
+        </p>
+        \[ \U_{t+1} \xrightarrow{\textsf{model}} \hat{\Y}_{t+1}. \]
+        <p>Then we would take the final row:</p>
+        \[ \hat{\ys}_{t+1} = P(\us_{t+2} \mid \us_{\leq t+1}). \]
+        <p>
+          But this is where things get wasteful. The tokens
+          \(\us_1, \dots, \us_t\) have already gone through the model. Running a
+          forward pass on the full input now is going to repeat a lot of the
+          calculations.
+        </p>
+        <p>That is the redundancy the \(\K\V\) cache removes.</p>
+
+        <h2 class="section" id="working-backwards">Working Backwards: Why \(\K\V\) Cache?</h2>
+        <p>Now we get to the actual reason the \(\K\V\) cache works.</p>
+        <p>
+          We just predicted \(\hat{\us}_{t+1}\), appended it, and now want the next
+          row:
+        </p>
+        \[ \hat{\ys}_{t+1} = P(\us_{t+2} \mid \us_{\leq t+1}). \]
+        <p>
+          Naively, we would pass the whole expanded sequence \(\U_{t+1}\) through
+          the model again. But let's work backwards from the output and see what we
+          actually need. Refer to <a href="#fig-1layer">Fig. 5</a> as we do this
+          exercise.
+        </p>
+        <p>The final probability vector is produced by softmax and unembedding:</p>
+        \[ \hat{\ys}_{t+1} = \textsf{softmax}\left( \xs^{\text{FF}_1}_{t+1}\W_U \right). \]
+        <p>
+          The softmax is row-wise. The unembedding is also row-wise. So to predict
+          \(\us_{t+2}\), we only need the final row:
+        </p>
+        \[ \xs^{\text{FF}_1}_{t+1}. \]
+        <p>Now step one layer backwards.</p>
+        <p>The feed-forward layer is also row-wise:</p>
+        \[
+        \xs^{\text{FF}_1}_{t+1} = \textsf{FF}\left(\xs^{\text{SA}_1}_{t+1}\right) = \sigma\left(\xs^{\text{SA}_1}_{t+1}\W_{\uparrow} + \bs_{\uparrow}\right)\W_{\downarrow} + \bs_{\downarrow}.
+        \]
+        <p>
+          So again, we do not need the feed-forward outputs for every previous
+          token. We only need:
+        </p>
+        \[ \xs^{\text{SA}_1}_{t+1}. \]
+        <p>
+          Now we get to the Attention block. Everything before this was
+          row-by-row. But attention is different. Attention is the place where the
+          newest token looks backwards and mixes information from the previous
+          tokens.
+        </p>
+        <p>So now we need to zoom into the attention calculation for the newest token.</p>
+        <p>From the original self-attention equation in \(\eqref{eq:self-attn}\),</p>
+        \[
+        \textsf{Self-Attn}(\X_t) = \textsf{softmax}\left( \frac{\Q_t\K_t^\T}{\sqrt{d_\text{head}}} + \M \right)\V_t,
+        \]
+        <p>the attention output for the newest token at position \(t+1\) is:</p>
+        \[
+        \xs^{\text{SA}_1}_{t+1} = \sum_{\ell=1}^{t+1} \alpha_{t+1,\ell}\vs_{\ell},
+        \]
+        <p>where</p>
+        \[
+        \alpha_{t+1,\ell} = \frac{ \exp\left( \frac{\qs_{t+1}\ks^\T_{\ell}}{\sqrt{d_\text{head}}} \right) }{ \sum^{t+1}_{j=1} \exp\left( \frac{\qs_{t+1}\ks^\T_{j}}{\sqrt{d_\text{head}}} \right) }.
+        \]
+        <p>
+          So written out more explicitly <em>ignoring the</em>
+          \(\sqrt{d_{\text{head}}}\):
+        </p>
+        \begin{align}
+        \xs^{\text{SA}_1}_{t+1} = \left( \frac{ \exp\left( \qs_{t+1}\ks^\T_{1} \right) }{ \sum^{t+1}_{j=1} \exp\left( \qs_{t+1}\ks^\T_{j} \right) } \right)\vs_1 + \dots + \left( \frac{ \exp\left( \qs_{t+1}\ks^\T_{t+1} \right) }{ \sum^{t+1}_{j=1} \exp\left( \qs_{t+1}\ks^\T_{j} \right) } \right)\vs_{t+1}. \label{eq:expanded-attn}
+        \end{align}
+        <p>Now you might ask: where did the mask \(\M\) go?</p>
+        <p>
+          In the full matrix version, \(\M\) is needed because we compute attention
+          for every token position at once. So token \(3\) would technically have
+          columns for token \(4\), token \(5\), and so on. The causal mask adds
+          \(-\infty\) to those illegal future positions, so after softmax their
+          attention weights become zero.
+        </p>
+        <p>
+          But here, we are writing the scalar attention equation only for the
+          newest token at position \(t+1\) during generation.
+        </p>
+        <p>
+          At this point, there are no future tokens inside the cache. The available
+          keys and values are only:
+        </p>
+        \[ 1,2,\dots,t+1. \]
+        <p>So the summation already runs only over legal positions:</p>
+        \[ \ell = 1,\dots,t+1. \]
+        <p>
+          That is why \(\M\) does not explicitly appear in the expanded equation.
+          It has not magically disappeared. Its job has already been baked into the
+          range of the summation. We are only summing over tokens the newest token
+          is allowed to attend to.
+        </p>
+        <p>
+          So, according to our attention equation in \(\eqref{eq:expanded-attn}\),
+          to compute \(\xs^{\text{SA}_1}_{t+1}\), we need:
+        </p>
+        \[
+        \begin{aligned}
+        \qs_{t+1} &= \xs_{t+1}\W_Q, \\
+        \ks_{\ell} &= \xs_{\ell}\W_K \quad \text{for } \ell = 1,\dots,t+1, \\
+        \vs_{\ell} &= \xs_{\ell}\W_V \quad \text{for } \ell = 1,\dots,t+1.
+        \end{aligned}
+        \]
+        <p>
+          This is the whole punchline. For the newest token, we need one new query:
+        </p>
+        \[ \qs_{t+1}. \]
+        <p>But we need all keys and values from the past:</p>
+        \[ \ks_1,\dots,\ks_t, \qquad \vs_1,\dots,\vs_t. \]
+        <p>
+          Those old keys and values were already computed during the first full
+          forward pass. They do not change when we append a new token. In this
+          1-layer setting, this follows directly from the row-wise Q/K/V
+          projections. For example:
+        </p>
+        \[ \ks_3 = \xs_3\W_K \]
+        <p>
+          depends only on the row \(\xs_3\) and the weight matrix \(\W_K\), so it is
+          still the same vector after token \(t+1\) is appended. Similarly,
+        </p>
+        \[ \vs_3 = \xs_3\W_V \]
+        <p>depends only on \(\xs_3\) and \(\W_V\), so it is still the same vector.</p>
+        <p>So recomputing them is pure waste.</p>
+        <p>Instead, we save them.</p>
+        <p>That saved memory is the \(\K\V\) cache:</p>
+        \[
+        \K_{\text{cache},t} = \begin{bmatrix}
+        \rowbar & \ks_1 & \rowbar \\
+        \rowbar & \ks_2 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \ks_t & \rowbar
+        \end{bmatrix}, \qquad
+        \V_{\text{cache},t} = \begin{bmatrix}
+        \rowbar & \vs_1 & \rowbar \\
+        \rowbar & \vs_2 & \rowbar \\
+        & \vdots & \\
+        \rowbar & \vs_t & \rowbar
+        \end{bmatrix}.
+        \]
+        <p>When the new token \(\hat{\us}_{t+1}\) comes in, we only compute:</p>
+        \[ \qs_{t+1}, \qquad \ks_{t+1}, \qquad \vs_{t+1}. \]
+        <p>Then we append only the new key and value:</p>
+        \[
+        \K_{\text{cache},t+1} = \begin{bmatrix}
+        \rowbar & \K_{\text{cache},t} & \rowbar \\
+        \rowbar & \ks_{t+1} & \rowbar
+        \end{bmatrix}, \qquad
+        \V_{\text{cache},t+1} = \begin{bmatrix}
+        \rowbar & \V_{\text{cache},t} & \rowbar \\
+        \rowbar & \vs_{t+1} & \rowbar
+        \end{bmatrix}.
+        \]
+        <p>
+          Then the newest query \(\qs_{t+1}\) attends against the cached keys and
+          pulls from the cached values:
+        </p>
+        \[ \qs_{t+1} \quad \text{attends to} \quad \K_{\text{cache},t+1} \quad \text{and reads from} \quad \V_{\text{cache},t+1}. \]
+        <p>That gives us \(\xs^{\text{SA}_1}_{t+1}\).</p>
+        <p>Then the rest of the pipeline is back to being on a per-token basis again:</p>
+        \[ \xs^{\text{SA}_1}_{t+1} \rightarrow \xs^{\text{FF}_1}_{t+1} \rightarrow \hat{\ys}_{t+1} \rightarrow \hat{\us}_{t+2}. \]
+        <p>So the clean picture is:</p>
+        <div class="callout">
+          <p>
+            To predict \(\us_{t+2}\), we only do a forward pass on
+            \(\hat{\us}_{t+1}\), without explicitly reprocessing the previous
+            context, \(\U_t\). The previous context is still used, but it is
+            accessed through the cached keys and values.
+          </p>
+        </div>
+
+        <h4>Multi-layer Transformer Nuance</h4>
+        <p>
+          The derivation above used a 1-layer transformer, so each old key is
+          simply \(\ks_i = \xs_i\W_K\) and each old value is \(\vs_i = \xs_i\W_V\).
+          In a real transformer with many layers, the same idea applies, but the
+          cache is kept separately for each layer. At layer \(r\), the cached keys
+          and values are computed from that layer's input activations, not directly
+          from the raw token embeddings.
+        </p>
+        <p>
+          The causal mask is what makes this safe. Under causal attention, the
+          hidden state at position \(i\) can depend only on positions
+          \(1,\dots,i\). Appending a future token at position \(t+1\) cannot change
+          the already-computed hidden states for positions \(1,\dots,t\).
+          Therefore the old layer-wise keys and values remain valid and do not need
+          to be recomputed.
+        </p>
+        <p>
+          So, in a multi-layer transformer, &ldquo;the \(\K\V\) cache&rdquo; really
+          means a collection of caches:
+        </p>
+        \[ \{(\K^{(r)}_{\text{cache}}, \V^{(r)}_{\text{cache}})\}_{r=1}^{n_{\text{layers}}}. \]
+        <p>
+          For each new token, every layer adds one new key vector and one new value
+          vector to its own cache.
+        </p>
+
+        <h2 class="section" id="why-not-q">Why Not Cache \(\Q\)?</h2>
+        <p>Now the natural question is: why not cache the queries too?</p>
+        <p>Because old queries are useless for the next prediction.</p>
+        <p>When trying to predict \(\us_{t+2}\), we only need the final row:</p>
+        \[ \hat{\ys}_{t+1} = P(\us_{t+2} \mid \us_{\leq t+1}). \]
+        <p>
+          That final row depends on the attention output for the newest token,
+          which uses the newest query:
+        </p>
+        \[ \qs_{t+1}. \]
+        <p>
+          It does <em>not</em> use \(\qs_1, \qs_2, \dots, \qs_t\), as seen in
+          \(\eqref{eq:expanded-attn}\).
+        </p>
+        <p>So the logic is:</p>
+        <ul>
+          <li>Old keys are useful because the new token needs to compare itself against old tokens.</li>
+          <li>Old values are useful because the new token needs to pull information from old tokens.</li>
+          <li>Old queries are not useful because we are not asking old tokens what they want to attend to anymore.</li>
+        </ul>
+        <p>That is why we cache \(\K\) and \(\V\), but not \(\Q\).</p>
+
+        <h2 class="section" id="loop">The Whole Cached Generation Loop</h2>
+        <p>Putting the whole thing together, the generation loop looks like this:</p>
+        <ol>
+          <li>Run one full forward pass on the prompt:
+            \[ \U_t = \begin{bmatrix} \us_1 \\ \vdots \\ \us_t \end{bmatrix}. \]
+          </li>
+          <li>From this pass, get the next-token distribution:
+            \[ \hat{\ys}_t = P(\us_{t+1} \mid \us_{\leq t}). \]
+          </li>
+          <li>Also save the keys and values from this pass:
+            \[ \K_{\text{cache},t}, \qquad \V_{\text{cache},t}. \]
+          </li>
+          <li>Sample the next token:
+            \[ \hat{\us}_{t+1} \sim \hat{\ys}_t. \]
+          </li>
+          <li>To predict \(\us_{t+2}\), do <strong>not</strong> run the full
+            sequence again. Pass only the newest token \(\hat{\us}_{t+1}\) through
+            the model, while supplying the cached keys and values to the attention
+            block.</li>
+          <li>Compute its new \(\qs_{t+1}\), \(\ks_{t+1}\), and \(\vs_{t+1}\).</li>
+          <li>Append only \(\ks_{t+1}\) and \(\vs_{t+1}\) to the cache.</li>
+          <li>Use \(\qs_{t+1}\) together with the cached keys and values to compute the newest attention output.</li>
+          <li>Use the newest row to predict:
+            \[ \hat{\ys}_{t+1} = P(\us_{t+2} \mid \us_{\leq t+1}). \]
+          </li>
+        </ol>
+        <p>And then we repeat. So the clean intuition is:</p>
+        <div class="callout">
+          <p>The first pass builds the memory. Every later pass only adds one new memory slot.</p>
+        </div>
+
+        <h2 class="section" id="layernorm">What about Layer Norm, Residuals and Positional Encodings?</h2>
+        <p>
+          If you're a Transformer purist looking at the diagram above, you might
+          notice I left out residual (skip) connections, Layer Normalization, and
+          positional encoding. This was done to focus on the \(\K\V\) cache logic.
+          None of these operations mixes information across the active sequence
+          length \(t\), so they fit into our &ldquo;per-token basis&rdquo; bucket.
+          Residual connections are just element-wise additions. LayerNorm
+          normalizes across the embedding dimension (\(d_{\text{emb}}\)) for each
+          token <em>independently</em>.
+        </p>
+        <p>
+          For additive positional embeddings, like learned positional embeddings or
+          sinusoidal positional embeddings, the caching story is straightforward.
+          Once token \(i\) has been embedded, its positional embedding is fixed.
+          When a new token appears at position \(t+1\), the previous tokens do not
+          get new positional embeddings. Token 3 is still token 3. So its
+          representation does not change. Therefore, its key and value vectors do
+          not change either. This means \(\K/\V\) caching is still valid: the old
+          \(\K\) and \(\V\) vectors are safe to reuse.
+        </p>
+        <p>
+          RoPE makes the explanation more subtle, but it does not break \(\K\V\)
+          caching. Firstly, RoPE is applied to queries and keys; RoPE is not applied
+          to values.
+        </p>
+        <p>
+          Secondly, in RoPE, positional information is not added to the token
+          embedding. Instead, RoPE rotates the query and key vectors according to
+          position. So we should not lazily throw RoPE into the same
+          &ldquo;row-wise operation&rdquo; bucket without thinking.
+        </p>
+        <p>
+          But the \(\K\V\) cache still works. The reason is that the old key was
+          already rotated using the old token's position. If token 5 produced a key
+          at position 5, that key is still the correct key for position 5 when token
+          6, 7, or 100 arrives. The token's absolute position did not change.
+        </p>
+        <p>
+          When a new token arrives, we compute the new query for the new position.
+          That new query is rotated using the new position. It then attends against
+          the old cached keys, which were rotated using their own old positions.
+        </p>
+        <p>
+          The relative-position behaviour comes from the dot product between the new
+          rotated query and the old rotated key. We do not need to go back and
+          rerotate the old keys. The old key keeps its own position. The new query
+          brings in the new position. Their interaction gives the relative offset.
+        </p>
+        <p>So for RoPE:</p>
+        <ul>
+          <li>Past values are not position-rotated by RoPE and remain valid in the cache.</li>
+          <li>Past queries are irrelevant for the next prediction.</li>
+          <li>Past keys are position-rotated, but they were rotated using their own absolute positions, which do not change.</li>
+          <li>Therefore, the old keys can still be cached.</li>
+        </ul>
+
+        <h2 class="section" id="batch">Introducing the Batch Dimension (\(B\))</h2>
+        <p>
+          To keep the explanation focused, we set up our mathematical formulation to
+          ignore the batch dimension, resulting in operations on a
+          \(t \times d_{\text{vocab}}\) tensor (where individual tokens are
+          \(1 \times d_{\text{emb}}\) row vectors).
+        </p>
+        <p>
+          In practice, models operate on batches of sequences simultaneously to
+          maximize GPU utilization. To introduce the batch dimension \(B\):
+        </p>
+        <ul>
+          <li>Our one-hot encoded input tensor \(\U\) expands from
+            \(t \times d_{\text{vocab}}\) to \(B \times t \times d_{\text{vocab}}\).</li>
+          <li>An individual token embedding is no longer just a
+            \(1 \times d_{\text{emb}}\) row vector, but rather a slice of a batched
+            tensor.</li>
+          <li>The weight matrices (\(\W_E, \W_Q, \W_K, \dots\)) remain exactly the
+            same. The matrix multiplications simply broadcast across the leading
+            Batch dimension.</li>
+        </ul>
+        <p>
+          Everything you learned about the \(\K\V\) cache holds true. The main
+          difference is that real transformer implementations maintain separate
+          caches for every layer and attention head. For layer \(r\), the cache
+          typically has shape
+        </p>
+        \[
+        \K^{(r)}_{\text{cache}}, \V^{(r)}_{\text{cache}} \in \mathbb{R}^{B \times n_{\text{heads}} \times t \times d_{\text{head}}}.
+        \]
+        <p>
+          This cached tensor holds the historical context for every sequence in the
+          batch concurrently.
+        </p>
+
+        <section class="footnotes">
+          <ol>
+            <li id="fn1">
+              In classical multi-head attention, there are multiple heads per
+              attention block, e.g. 4. Each head's query, key, and value vectors
+              would have dimension \(d_{\text{head}} = d_{\text{emb}}/4\). So there
+              would be 4 sets of smaller QKV projections.
+              <a class="footnote-backref" href="#fnref1">&#8617;</a>
+            </li>
+          </ol>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>

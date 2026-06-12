@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 190" width="560" height="190" font-family="Georgia, 'Times New Roman', serif" fill="#252825" role="img" aria-label="Detailed 1-Layer Transformer: input U_t, embedding W_E, a 1-layer transformer made of a Self-Attention block (stacked W_V, W_K, W_Q) and a Feed-forward block (W_up, sigma, W_down), then unembedding W_U, softmax and output Y-hat_t">
+  <defs>
+    <marker id="ah1" markerWidth="7" markerHeight="7" refX="5.5" refY="2.75" orient="auto">
+      <path d="M0,0 L5.5,2.75 L0,5.5 Z" fill="#252825"/>
+    </marker>
+  </defs>
+
+  <!-- dashed model box -->
+  <rect x="46" y="52" width="368" height="120" rx="6" fill="none" stroke="#9aa09a" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="56" y="66" font-size="10" font-style="italic" fill="#686e68">model</text>
+
+  <!-- transformer box -->
+  <rect x="104" y="66" width="238" height="86" rx="5" fill="none" stroke="#3f6fa0" stroke-width="1"/>
+  <text x="223" y="166" text-anchor="middle" font-size="10" font-style="italic" fill="#3f6fa0">1-Layer Transformer</text>
+
+  <!-- self-attention box -->
+  <rect x="110" y="78" width="70" height="64" rx="4" fill="#eef8ee" stroke="#4a8a4a"/>
+  <text x="145" y="74" text-anchor="middle" font-size="10" font-style="italic" fill="#3a7a3a">Self-Attention</text>
+  <!-- stacked QKV squares (back to front) -->
+  <rect x="144" y="86" width="24" height="24" rx="2" fill="#cdeccd" stroke="#4a8a4a"/>
+  <text x="161" y="96" text-anchor="middle" font-size="7" font-weight="bold" font-style="italic">W<tspan font-size="5" dy="2">Q</tspan></text>
+  <rect x="134" y="96" width="24" height="24" rx="2" fill="#d6f0d6" stroke="#4a8a4a"/>
+  <text x="151" y="106" text-anchor="middle" font-size="7" font-weight="bold" font-style="italic">W<tspan font-size="5" dy="2">K</tspan></text>
+  <rect x="124" y="106" width="24" height="24" rx="2" fill="#e0f4e0" stroke="#4a8a4a"/>
+  <text x="136" y="121" text-anchor="middle" font-size="7" font-weight="bold" font-style="italic">W<tspan font-size="5" dy="2">V</tspan></text>
+
+  <!-- feed-forward box -->
+  <rect x="218" y="78" width="118" height="64" rx="4" fill="#fdeded" stroke="#c06a6a"/>
+  <text x="277" y="74" text-anchor="middle" font-size="10" font-style="italic" fill="#b05050">Feed-forward</text>
+  <rect x="228" y="99" width="30" height="22" rx="3" fill="#fae0e0" stroke="#c06a6a"/>
+  <text x="243" y="113" text-anchor="middle" font-size="9" font-weight="bold" font-style="italic">W<tspan font-size="6" font-weight="normal" dy="2">&#8593;</tspan></text>
+  <circle cx="282" cy="110" r="12" fill="#fcf1c9" stroke="#c9ab3f"/>
+  <text x="282" y="114" text-anchor="middle" font-size="11">&#963;</text>
+  <rect x="302" y="88" width="24" height="44" rx="3" fill="#fae0e0" stroke="#c06a6a"/>
+  <text x="314" y="113" text-anchor="middle" font-size="9" font-weight="bold" font-style="italic">W<tspan font-size="6" font-weight="normal" dy="2">&#8595;</tspan></text>
+  <line x1="258" y1="110" x2="268" y2="110" stroke="#252825" stroke-width="1" marker-end="url(#ah1)"/>
+  <line x1="294" y1="110" x2="300" y2="110" stroke="#252825" stroke-width="1" marker-end="url(#ah1)"/>
+
+  <!-- input U_t -->
+  <text x="16" y="114" font-size="15" font-weight="bold" font-style="italic">U<tspan font-size="9" font-weight="normal" dy="3">t</tspan></text>
+  <!-- W_E -->
+  <rect x="54" y="83" width="24" height="54" rx="3" fill="#e8f0fa" stroke="#3f6fa0"/>
+  <text x="66" y="114" text-anchor="middle" font-size="12" font-weight="bold" font-style="italic">W<tspan font-size="7" font-weight="normal" dy="2">E</tspan></text>
+  <!-- W_U -->
+  <rect x="372" y="99" width="34" height="22" rx="3" fill="#e8f0fa" stroke="#3f6fa0"/>
+  <text x="389" y="114" text-anchor="middle" font-size="12" font-weight="bold" font-style="italic">W<tspan font-size="7" font-weight="normal" dy="2">U</tspan></text>
+  <!-- softmax -->
+  <rect x="444" y="97" width="78" height="26" rx="4" fill="#fce6cd" stroke="#d18a2a"/>
+  <text x="483" y="114" text-anchor="middle" font-size="12">softmax</text>
+  <!-- output -->
+  <text x="536" y="114" font-size="15" font-weight="bold" font-style="italic">&#374;<tspan font-size="9" font-weight="normal" dy="3">t</tspan></text>
+
+  <!-- flow arrows -->
+  <g stroke="#252825" stroke-width="1.1" fill="none">
+    <line x1="38" y1="110" x2="52" y2="110" marker-end="url(#ah1)"/>
+    <line x1="78" y1="110" x2="108" y2="110" marker-end="url(#ah1)"/>
+    <line x1="180" y1="110" x2="216" y2="110" marker-end="url(#ah1)"/>
+    <line x1="336" y1="110" x2="370" y2="110" marker-end="url(#ah1)"/>
+    <line x1="406" y1="110" x2="442" y2="110" marker-end="url(#ah1)"/>
+    <line x1="522" y1="110" x2="532" y2="110" marker-end="url(#ah1)"/>
+  </g>
+  <!-- arrow labels -->
+  <g font-weight="bold" font-style="italic" fill="#252825">
+    <text x="93" y="104" text-anchor="middle" font-size="11">X<tspan font-size="7" font-weight="normal" dy="2">t</tspan></text>
+    <text x="423" y="104" text-anchor="middle" font-size="11">Z<tspan font-size="7" font-weight="normal" dy="2">t</tspan></text>
+    <!-- X^{SA1}_t -->
+    <text font-size="11"><tspan x="193" y="106">X</tspan></text>
+    <text font-weight="normal" font-style="normal" font-size="6.5"><tspan x="200" y="101">SA1</tspan><tspan x="200" y="110">t</tspan></text>
+    <!-- X^{FF1}_t -->
+    <text font-size="11"><tspan x="349" y="106">X</tspan></text>
+    <text font-weight="normal" font-style="normal" font-size="6.5"><tspan x="356" y="101">FF1</tspan><tspan x="356" y="110">t</tspan></text>
+  </g>
+</svg>

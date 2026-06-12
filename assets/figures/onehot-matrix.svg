@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 112" width="250" height="112" font-family="Georgia, 'Times New Roman', serif" fill="#252825" role="img" aria-label="One-hot encoded input matrix U_t with t rows and d_vocab columns">
+  <defs>
+    <marker id="ah" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#252825"/>
+    </marker>
+  </defs>
+  <!-- top arrow: d_vocab -->
+  <line x1="46" y1="22" x2="214" y2="22" stroke="#252825" stroke-width="1" marker-end="url(#ah)"/>
+  <text x="130" y="14" text-anchor="middle" font-size="11"><tspan font-style="italic">d</tspan><tspan font-size="8" dy="2">vocab</tspan></text>
+  <!-- left arrow: t -->
+  <line x1="34" y1="30" x2="34" y2="100" stroke="#252825" stroke-width="1" marker-end="url(#ah)"/>
+  <text x="24" y="68" text-anchor="middle" font-size="11" font-style="italic">t</text>
+  <!-- brackets -->
+  <path d="M48,30 L43,30 L43,102 L48,102" fill="none" stroke="#252825" stroke-width="1.2"/>
+  <path d="M210,30 L215,30 L215,102 L210,102" fill="none" stroke="#252825" stroke-width="1.2"/>
+  <!-- rows -->
+  <g font-size="13" text-anchor="middle">
+    <text x="129" y="48">0&#160;&#160;&#160;0&#160;&#160;&#160;&#8943;&#160;&#160;&#160;1&#160;&#160;&#160;&#8943;&#160;&#160;&#160;0</text>
+    <text x="129" y="68">0&#160;&#160;&#160;&#8943;&#160;&#160;&#160;1&#160;&#160;&#160;&#8943;&#160;&#160;&#160;&#8943;&#160;&#160;&#160;0</text>
+    <text x="129" y="88">0&#160;&#160;&#160;0&#160;&#160;&#160;0&#160;&#160;&#160;0&#160;&#160;&#160;1&#160;&#160;&#160;&#8943;</text>
+  </g>
+</svg>
