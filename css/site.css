@@ -343,6 +343,168 @@ figure.fig figcaption .fig-label {
   color: var(--muted);
 }
 
+/* ---------- Data table ---------- */
+.data-table-wrap {
+  overflow-x: auto;
+  margin: 1.75rem 0;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 0.83rem;
+}
+
+table.data th,
+table.data td {
+  padding: 0.45rem 0.7rem;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+table.data thead th {
+  border-bottom: 1.5px solid var(--text);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.78rem;
+  vertical-align: bottom;
+}
+
+table.data td.name,
+table.data th.name,
+table.data td.family,
+table.data th.family {
+  text-align: left;
+}
+
+table.data td.family {
+  font-weight: 600;
+}
+
+table.data tbody tr:hover {
+  background: var(--code);
+}
+
+table.data .group-start td {
+  border-top: 1px solid var(--line);
+}
+
+table.data .miss {
+  color: var(--muted);
+}
+
+/* ---------- Scatter chart ---------- */
+.scatter {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.scatter svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.scatter .axis-line {
+  stroke: var(--text);
+  stroke-width: 1;
+}
+
+.scatter .grid-line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.scatter .ref-line {
+  stroke: var(--muted);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+}
+
+.scatter .tick-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+.scatter .axis-title {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+.scatter .pt {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: r 0.1s ease;
+}
+
+.scatter .pt:hover {
+  r: 8;
+}
+
+.scatter-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.scatter-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.scatter-legend i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+}
+
+.chart-tooltip {
+  position: fixed;
+  z-index: 10;
+  max-width: 16rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.4rem;
+  background: var(--text);
+  color: var(--surface);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  pointer-events: none;
+  box-shadow: 0 0.4rem 1.2rem rgb(30 45 39 / 22%);
+}
+
+.chart-tooltip strong {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.chart-tooltip[hidden] {
+  display: none;
+}
+
 @media (max-width: 48rem) {
   .layout {
     grid-template-columns: 1fr;

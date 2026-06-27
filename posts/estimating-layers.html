@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A first-order estimate of how many layers a decoder-style transformer has, given its parameter count, checked against eleven open-weight models.">
+    <title>Estimating Layers in Transformers</title>
+    <link rel="stylesheet" href="../css/site.css">
+    <script src="../js/mathjax-config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script defer src="../js/toc.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell">
+        <a class="site-name" href="../index.html">Sithan Kanna</a>
+      </div>
+    </header>
+
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Contents">
+        <nav>
+          <h2>Contents</h2>
+          <a href="#building-blocks">1. The Building Blocks</a>
+          <a href="#counting">2. Counting Parameters</a>
+          <a href="#solving">3. Solving for the Number of Layers</a>
+          <a href="#results">4. Checking Against Real Models</a>
+        </nav>
+      </aside>
+
+      <article class="post-body">
+        <h1>Estimating Layers in Transformers</h1>
+        <p class="post-meta">27 June 2026</p>
+
+        <p>
+          We are going to estimate the number of layers in a transformer for a
+          given number of parameters. We will take a simplified view of a
+          decoder-style transformer. The goal is not to count every small term,
+          but to get a useful first-order estimate.
+        </p>
+
+        <h2 class="section" id="building-blocks">The Building Blocks</h2>
+        <p>What are the building blocks of this transformer?</p>
+
+        <ol>
+          <li>Input embedding, parameterised by
+            \(\W_E \in \mathbb{R}^{d_{\text{vocab}} \times d_{\text{emb}}}\).</li>
+          <li>Positional embedding, parameterised by
+            \(\W_{E_{\text{p}}} \in \mathbb{R}^{T_{\max} \times d_{\text{emb}}}\),
+            where \(T_{\max}\) is the maximum context length. For architectures
+            that use rotary position embeddings (RoPE), there is no separate
+            learned positional embedding matrix. So, this building block is
+            omitted in our main calculation.</li>
+          <li>\(L\) layers, or transformer blocks, where each block has:
+            <ol style="list-style-type: lower-alpha;">
+              <li>Multi-head attention, formed from \(n_{\text{head}}\) attention
+                heads:
+                <ol style="list-style-type: lower-roman;">
+                  <li>Each head has \(Q\), \(K\), and \(V\) projections,
+                    parameterised by
+                    \(\W_Q, \W_K, \W_V \in \mathbb{R}^{d_{\text{emb}} \times d_{\text{head}}}\).
+                    The head dimension is usually chosen so that
+                    \(d_{\text{head}} = d_{\text{emb}} / n_{\text{head}}\).</li>
+                  <li>After the heads are concatenated, a single output projection
+                    is applied, parameterised by
+                    \(\W_O \in \mathbb{R}^{d_{\text{emb}} \times d_{\text{emb}}}\).</li>
+                </ol>
+              </li>
+              <li>Feed-forward layer, parameterised by
+                \(\W_{\uparrow} \in \mathbb{R}^{d_{\text{emb}} \times 4d_{\text{emb}}}\)
+                and
+                \(\W_{\downarrow} \in \mathbb{R}^{4 d_{\text{emb}} \times d_{\text{emb}}}\).</li>
+            </ol>
+          </li>
+          <li>Output embedding, parameterised by
+            \(\W_{E_\text{o}} \in \mathbb{R}^{d_{\text{emb}} \times d_{\text{vocab}}}\).
+            In some transformer architectures, the output embedding is not separate
+            but shared with the input embedding, i.e.
+            \(\W_{E_\text{o}} = \W_E^\top\). However, we will consider it as another
+            distinct step.</li>
+        </ol>
+
+        <p>
+          For simplicity, we ignore bias terms, LayerNorm parameters, and other
+          small architectural details. We also assume standard multi-head attention
+          and a two-matrix feed-forward layer with expansion factor \(4\).
+          Architectures with grouped-query attention, multi-query attention, gated
+          feed-forward layers, or mixture-of-experts layers change the constants
+          below.
+        </p>
+
+        <h2 class="section" id="counting">Counting Parameters</h2>
+        <p>
+          Let's use \(n\left[\cdot\right]\) to denote the number of parameters. For
+          example, since \(\W_E\) is a matrix of dimension
+          \(d_{\text{vocab}} \times d_{\text{emb}}\), the number of parameters is
+        </p>
+        \[
+        n\left[\W_E\right] = d_{\text{vocab}} d_{\text{emb}}.
+        \]
+
+        <p>
+          If learned absolute positional embeddings are included, they add
+          \(T_{\max}d_{\text{emb}}\) parameters. In the main calculation below, we
+          use the modern RoPE-style case, so that positional-embedding term is
+          omitted. We do keep the output embedding as a separate, untied matrix, as
+          noted in the building blocks above, so it contributes another
+          \(d_{\text{vocab}}d_{\text{emb}}\) parameters.
+        </p>
+
+        <p>So, the total number of parameters is:</p>
+        \begin{align}
+        n\left[\text{Transformer}\right]
+        = {} & n\left[\text{Embeddings}\right]
+        + L \cdot n\left[\text{Transformer Block}\right].
+        \label{eq:param_decomposition}
+        \end{align}
+
+        <p>
+          Equation \(\eqref{eq:param_decomposition}\) is the main decomposition:
+          count the embeddings once, then add the same block count \(L\) times.
+        </p>
+
+        <p>
+          Since we assume no learned absolute positional embedding matrix, the
+          embedding term is:
+        </p>
+        \begin{align}
+        n\left[\text{Embeddings}\right]
+        = {} & n\left[\W_E\right] + n\left[\W_{E_\text{o}}\right] \nonumber \\
+        = {} & 2 d_{\text{vocab}} d_{\text{emb}}.
+        \label{eq:embedding_params}
+        \end{align}
+
+        <p>For self-attention:</p>
+        \begin{align}
+        n\left[\text{Self-Attention}\right]
+        = {} & n_{\text{head}} \left(
+        n\left[\W_Q\right] + n\left[\W_K\right] + n\left[\W_V\right]
+        \right)
+        + n\left[\W_O\right] \nonumber \\
+        = {} & n_{\text{head}} \left(
+        3 \cdot d_{\text{emb}} \frac{d_{\text{emb}}}{n_{\text{head}}}
+        \right)
+        + d_{\text{emb}} d_{\text{emb}} \nonumber \\
+        = {} & 4d^2_{\text{emb}}.
+        \label{eq:self_attention_params}
+        \end{align}
+
+        <p>
+          Notice that \(n_{\text{head}}\) cancels in
+          \(\eqref{eq:self_attention_params}\). Increasing the number of heads
+          decreases \(d_{\text{head}}\) in the same proportion, so the total size of
+          the \(Q\), \(K\), and \(V\) projections stays the same under this
+          simplified setup.
+        </p>
+
+        <p>For the feed-forward layer:</p>
+        \begin{align}
+        n\left[\text{Feed-forward}\right]
+        = {} & n\left[\W_{\uparrow}\right] + n\left[\W_{\downarrow}\right] \nonumber \\
+        = {} & d_{\text{emb}}(4d_{\text{emb}}) + (4d_{\text{emb}})d_{\text{emb}} \nonumber \\
+        = {} & 8d^2_{\text{emb}}.
+        \label{eq:feed_forward_params}
+        \end{align}
+
+        <p>
+          So, under this simplified architecture, the feed-forward layer in
+          \(\eqref{eq:feed_forward_params}\) has twice as many parameters as the
+          self-attention layer in \(\eqref{eq:self_attention_params}\). A single
+          transformer block therefore has:
+        </p>
+        \begin{align}
+        n\left[\text{Transformer Block}\right]
+        = {} & n\left[\text{Self-Attention}\right] + n\left[\text{Feed-forward}\right] \nonumber \\
+        = {} & 4d^2_{\text{emb}} + 8d^2_{\text{emb}} \nonumber \\
+        = {} & 12d^2_{\text{emb}}.
+        \label{eq:block_params}
+        \end{align}
+
+        <h2 class="section" id="solving">Solving for the Number of Layers</h2>
+        <p>
+          Putting \(\eqref{eq:embedding_params}\) and \(\eqref{eq:block_params}\)
+          into \(\eqref{eq:param_decomposition}\) gives:
+        </p>
+        \begin{align}
+        n\left[\text{Transformer}\right]
+        = {} & 2d_{\text{vocab}} d_{\text{emb}} + L \cdot 12d^2_{\text{emb}}.
+        \label{eq:transformer_params}
+        \end{align}
+
+        <p>
+          Finally, solving \(\eqref{eq:transformer_params}\) for \(L\) gives the
+          estimated number of layers:
+        </p>
+        \begin{align}
+        L
+        = {} & \frac{
+        n\left[\text{Transformer}\right] - 2d_{\text{vocab}} d_{\text{emb}}
+        }{
+        12d^2_{\text{emb}}
+        }.
+        \label{eq:layer_estimate}
+        \end{align}
+
+        <p>
+          The value from \(\eqref{eq:layer_estimate}\) should be read as a rough
+          estimate and then rounded to a whole number, since an actual transformer
+          has an integer number of blocks.
+        </p>
+
+        <h2 class="section" id="results">Checking Against Real Models</h2>
+        <p>
+          To see how well \(\eqref{eq:layer_estimate}\) holds up, the table below
+          applies it to eleven open-weight decoder models. For each one we plug in
+          the published vocabulary size \(d_{\text{vocab}}\), hidden size
+          \(d_{\text{emb}}\), and total parameter count, then compare the estimated
+          layer count against the true number of blocks.
+        </p>
+
+        <div class="data-table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th class="family">Family</th>
+                <th class="name">Model</th>
+                <th>Parameters</th>
+                <th>\(d_{\text{vocab}}\)</th>
+                <th>\(d_{\text{emb}}\)</th>
+                <th>Actual \(L\)</th>
+                <th>Estimated \(L\)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="group-start">
+                <td class="family" rowspan="4">Llama</td>
+                <td class="name">Llama-3.2-1B</td>
+                <td>1.22 B</td><td>128,256</td><td>2,048</td><td>16</td><td>14</td>
+              </tr>
+              <tr>
+                <td class="name">Llama-3-8B</td>
+                <td>8.03 B</td><td>128,256</td><td>4,096</td><td>32</td><td>35</td>
+              </tr>
+              <tr>
+                <td class="name">Llama-3-70B</td>
+                <td>70.6 B</td><td>128,256</td><td>8,192</td><td>80</td><td>85</td>
+              </tr>
+              <tr>
+                <td class="name">Llama-3-405B</td>
+                <td>405 B</td><td>128,256</td><td>16,384</td><td>126</td><td>124</td>
+              </tr>
+
+              <tr class="group-start">
+                <td class="family" rowspan="4">Qwen</td>
+                <td class="name">Qwen2.5-0.5B</td>
+                <td>0.49 B</td><td>151,936</td><td>896</td><td>24</td><td>23</td>
+              </tr>
+              <tr>
+                <td class="name">Qwen2.5-1.5B</td>
+                <td>1.54 B</td><td>151,936</td><td>1,536</td><td>28</td><td>38</td>
+              </tr>
+              <tr>
+                <td class="name">Qwen2.5-7B</td>
+                <td>7.61 B</td><td>152,064</td><td>3,584</td><td>28</td><td>42</td>
+              </tr>
+              <tr>
+                <td class="name">Qwen2.5-72B</td>
+                <td>72.5 B</td><td>152,064</td><td>8,192</td><td>80</td><td>87</td>
+              </tr>
+
+              <tr class="group-start">
+                <td class="family" rowspan="3">Mistral</td>
+                <td class="name">Mistral-7B-v0.1</td>
+                <td>7.24 B</td><td>32,000</td><td>4,096</td><td>32</td><td>35</td>
+              </tr>
+              <tr>
+                <td class="name">Mistral-Nemo-12B</td>
+                <td>12.2 B</td><td>131,072</td><td>5,120</td><td>40</td><td>35</td>
+              </tr>
+              <tr>
+                <td class="name">Mistral-Large</td>
+                <td>123 B</td><td>32,768</td><td>12,288</td><td>88</td><td>67</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Plotting the true layer count against the estimate makes the fit easy to
+          read. Points on the dashed line are perfect estimates; points
+          <em>below</em> the line are overestimates (the formula guessed more layers
+          than the model has), and points <em>above</em> are underestimates. Hover
+          over a point to see which model it is.
+        </p>
+
+        <figure class="fig" id="fig-scatter">
+          <div class="scatter" id="scatter"></div>
+          <div class="scatter-legend" id="scatter-legend"></div>
+          <figcaption>
+            <span class="fig-label">Figure 1.</span> Actual layer count plotted
+            against the estimate for eleven open-weight models. The dashed line is
+            the line of perfect agreement (\(\text{actual} = \text{estimated}\)).
+          </figcaption>
+        </figure>
+
+        <p>
+          The estimate lands within a handful of layers for most models, and is
+          tightest for the largest ones (124 vs. 126 for Llama-3-405B). Beyond that,
+          I haven't investigated each architecture in detail — this is a
+          back-of-the-envelope estimate, so treat what follows as intuition rather
+          than a precise accounting.
+        </p>
+        <p>
+          The direction of the error still tells us something simple. If the formula
+          overshoots the layer count, then more parameters must be going into each
+          transformer block than our assumed \(12d^2_{\text{emb}}\), and the formula
+          makes up the difference by inventing extra layers. For the Qwen models
+          (e.g. Qwen2.5-7B), the MLP blocks are larger than the \(4\times\) expansion
+          we assumed, so each real block costs more than \(12d^2_{\text{emb}}\) and
+          we overshoot. Conversely, we underestimate the layers for Mistral-Large,
+          which means each of its transformer blocks holds fewer parameters than
+          \(12d^2_{\text{emb}}\).
+        </p>
+      </article>
+    </main>
+
+    <div class="chart-tooltip" id="chart-tooltip" hidden></div>
+
+    <script>
+      (function () {
+        var DATA = [
+          { f: "Llama", n: "Llama-3.2-1B", actual: 16, est: 14 },
+          { f: "Llama", n: "Llama-3-8B", actual: 32, est: 35 },
+          { f: "Llama", n: "Llama-3-70B", actual: 80, est: 85 },
+          { f: "Llama", n: "Llama-3-405B", actual: 126, est: 124 },
+          { f: "Qwen", n: "Qwen2.5-0.5B", actual: 24, est: 23 },
+          { f: "Qwen", n: "Qwen2.5-1.5B", actual: 28, est: 38 },
+          { f: "Qwen", n: "Qwen2.5-7B", actual: 28, est: 42 },
+          { f: "Qwen", n: "Qwen2.5-72B", actual: 80, est: 87 },
+          { f: "Mistral", n: "Mistral-7B-v0.1", actual: 32, est: 35 },
+          { f: "Mistral", n: "Mistral-Nemo-12B", actual: 40, est: 35 },
+          { f: "Mistral", n: "Mistral-Large", actual: 88, est: 67 }
+        ];
+        var COLORS = { Llama: "#3f8fca", Qwen: "#c0703f", Mistral: "#5a9367" };
+
+        var W = 460, H = 420;
+        var m = { top: 16, right: 16, bottom: 48, left: 52 };
+        var dMax = 130;
+        var px0 = m.left, px1 = W - m.right;
+        var py0 = H - m.bottom, py1 = m.top;
+        function sx(v) { return px0 + (v / dMax) * (px1 - px0); }
+        function sy(v) { return py0 + (v / dMax) * (py1 - py0); }
+
+        var ns = "http://www.w3.org/2000/svg";
+        function el(name, attrs) {
+          var e = document.createElementNS(ns, name);
+          for (var k in attrs) e.setAttribute(k, attrs[k]);
+          return e;
+        }
+
+        var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+        svg.setAttribute("aria-label", "Scatter plot of estimated versus actual layer count");
+
+        var ticks = [0, 20, 40, 60, 80, 100, 120];
+        ticks.forEach(function (t) {
+          // vertical + horizontal grid
+          svg.appendChild(el("line", { class: "grid-line", x1: sx(t), y1: py0, x2: sx(t), y2: py1 }));
+          svg.appendChild(el("line", { class: "grid-line", x1: px0, y1: sy(t), x2: px1, y2: sy(t) }));
+          // x tick label
+          var xl = el("text", { class: "tick-label", x: sx(t), y: py0 + 18, "text-anchor": "middle" });
+          xl.textContent = t;
+          svg.appendChild(xl);
+          // y tick label
+          var yl = el("text", { class: "tick-label", x: px0 - 8, y: sy(t) + 4, "text-anchor": "end" });
+          yl.textContent = t;
+          svg.appendChild(yl);
+        });
+
+        // y = x reference line
+        svg.appendChild(el("line", { class: "ref-line", x1: sx(0), y1: sy(0), x2: sx(dMax), y2: sy(dMax) }));
+
+        // axes
+        svg.appendChild(el("line", { class: "axis-line", x1: px0, y1: py0, x2: px1, y2: py0 }));
+        svg.appendChild(el("line", { class: "axis-line", x1: px0, y1: py0, x2: px0, y2: py1 }));
+
+        // axis titles
+        var xt = el("text", { class: "axis-title", x: (px0 + px1) / 2, y: H - 6, "text-anchor": "middle" });
+        xt.textContent = "Estimated layers";
+        svg.appendChild(xt);
+        var yt = el("text", { class: "axis-title", x: 14, y: (py0 + py1) / 2, "text-anchor": "middle", transform: "rotate(-90 14 " + (py0 + py1) / 2 + ")" });
+        yt.textContent = "Actual layers";
+        svg.appendChild(yt);
+
+        // points (x = estimated, y = actual)
+        DATA.forEach(function (d) {
+          var c = el("circle", { class: "pt", cx: sx(d.est), cy: sy(d.actual), r: 6, fill: COLORS[d.f] });
+          var title = el("title", {});
+          title.textContent = d.n + " — actual " + d.actual + ", estimated " + d.est;
+          c.appendChild(title);
+          c.__d = d;
+          svg.appendChild(c);
+        });
+
+        document.getElementById("scatter").appendChild(svg);
+
+        // legend
+        var legend = document.getElementById("scatter-legend");
+        Object.keys(COLORS).forEach(function (f) {
+          var s = document.createElement("span");
+          var i = document.createElement("i");
+          i.style.background = COLORS[f];
+          s.appendChild(i);
+          s.appendChild(document.createTextNode(f));
+          legend.appendChild(s);
+        });
+
+        // custom tooltip
+        var tip = document.getElementById("chart-tooltip");
+        function show(e) {
+          var d = e.target.__d;
+          if (!d) return;
+          var diff = d.est - d.actual;
+          var sign = diff > 0 ? "+" : "";
+          tip.innerHTML =
+            "<strong>" + d.n + "</strong>" +
+            "actual " + d.actual + " · estimated " + d.est +
+            " (" + sign + diff + ")";
+          tip.hidden = false;
+          move(e);
+        }
+        function move(e) {
+          var pad = 14;
+          var x = e.clientX + pad;
+          var y = e.clientY + pad;
+          var r = tip.getBoundingClientRect();
+          if (x + r.width > window.innerWidth) x = e.clientX - pad - r.width;
+          if (y + r.height > window.innerHeight) y = e.clientY - pad - r.height;
+          tip.style.left = x + "px";
+          tip.style.top = y + "px";
+        }
+        function hide() { tip.hidden = true; }
+        svg.addEventListener("pointerover", function (e) {
+          if (e.target.classList && e.target.classList.contains("pt")) show(e);
+        });
+        svg.addEventListener("pointermove", function (e) {
+          if (!tip.hidden && e.target.classList && e.target.classList.contains("pt")) move(e);
+        });
+        svg.addEventListener("pointerout", function (e) {
+          if (e.target.classList && e.target.classList.contains("pt")) hide();
+        });
+      })();
+    </script>
+  </body>
+</html>
