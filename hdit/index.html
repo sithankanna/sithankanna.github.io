@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#131313">
+    <meta name="description" content="HDIT @ Home. High Density Interval Thinking. A timed thinking practice you can run on your own: from topic to question to one idea to a single next step.">
+    <title>HDIT @ Home: High Density Interval Thinking</title>
+    <style>
+      /* ============================================================
+         HDIT @ Home: self-contained stylesheet
+         Design taken from the HDIT deck:
+         charcoal gradient · serif · amber accent · flow-diagram nav
+         ============================================================ */
+      :root {
+        --bg-top: #131313;
+        --bg-bottom: #2a2a2a;
+        --panel: #1c1c1c;
+        --ink: #ececea;          /* primary white-ish text */
+        --ink-dim: #9a9a96;       /* secondary / dimmed */
+        --ink-faint: #5d5d5a;     /* faint future-step text */
+        --amber: #e8a317;         /* accent */
+        --amber-soft: #f0b94a;
+        --line: #3a3a39;
+        --line-amber: #e8a317;
+        --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
+                 Georgia, "Times New Roman", serif;
+        --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+                "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      html {
+        scroll-behavior: smooth;
+        /* solid dark base so overscroll / rubber-band never shows white */
+        background: var(--bg-top);
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        font-family: var(--serif);
+        font-size: 1rem;
+        line-height: 1.6;
+        background:
+          radial-gradient(120% 80% at 50% 0%, #1a1a1a 0%, transparent 60%),
+          linear-gradient(180deg, var(--bg-top) 0%, #1d1d1d 45%, var(--bg-bottom) 100%);
+        background-attachment: fixed;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a { color: var(--amber); text-underline-offset: 0.2em; }
+      button { font-family: inherit; cursor: pointer; color: inherit; }
+      em { font-style: italic; }
+
+      .amber { color: var(--amber); }
+      .sans { font-family: var(--sans); }
+
+      .wrap { width: min(100% - 2.5rem, 60rem); margin-inline: auto; }
+
+      /* persistent copyright (bottom-right, like the deck) */
+      .copyright {
+        position: fixed;
+        right: 0.9rem;
+        bottom: 0.7rem;
+        z-index: 5;
+        text-align: right;
+        font-family: var(--sans);
+        font-size: 0.62rem;
+        line-height: 1.4;
+        color: #6a6a67;
+        letter-spacing: 0.01em;
+        pointer-events: none;
+        max-width: 60vw;
+      }
+
+      /* ===================== brand bar ===================== */
+      .brandbar {
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+        padding-block: 1.3rem;
+      }
+      .brandbar .mark {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+      }
+      .brandbar .mark sup { font-size: 0.55em; opacity: 0.7; }
+      .brandbar .at { color: var(--ink-dim); font-style: italic; font-size: 1.05rem; }
+
+      /* ===================== intro ===================== */
+      .intro { padding-bottom: 4rem; }
+      .hero-title {
+        margin: 1.5rem 0 0.2rem;
+        font-weight: 700;
+        line-height: 1.02;
+        letter-spacing: -0.01em;
+        font-size: clamp(2.6rem, 9vw, 5rem);
+      }
+      .hero-title .hd { display: block; color: var(--ink); }
+      .hero-title .it { display: block; color: var(--amber); }
+      .hero-sub {
+        margin: 1.2rem 0 2rem;
+        color: var(--ink-dim);
+        font-style: italic;
+        font-size: clamp(1.05rem, 2.6vw, 1.4rem);
+        max-width: 40rem;
+      }
+      .intro p { margin: 0 0 1.1rem; max-width: 42rem; color: #d6d6d3; }
+      .intro p.lead { font-size: 1.15rem; color: var(--ink); }
+
+      .quote {
+        margin: 2rem 0;
+        padding: 1.1rem 1.6rem;
+        border-left: 2px solid var(--amber);
+        font-style: italic;
+        color: #e3e3e0;
+        max-width: 42rem;
+      }
+      .quote em { color: var(--amber); font-style: italic; }
+
+      .principles { margin: 1.5rem 0 2.5rem; padding: 0; list-style: none; max-width: 42rem; }
+      .principles li {
+        position: relative;
+        padding-left: 1.4rem;
+        margin-bottom: 0.55rem;
+        color: #d6d6d3;
+      }
+      .principles li::before {
+        content: "•"; color: var(--amber);
+        position: absolute; left: 0.2rem;
+      }
+      .principles em { color: var(--amber); font-style: italic; }
+
+      .section-label {
+        font-family: var(--sans);
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin: 3rem 0 1rem;
+      }
+
+      .modes { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; max-width: 46rem; }
+      @media (max-width: 38rem) { .modes { grid-template-columns: 1fr; } }
+      .mode-card {
+        text-align: left;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--line);
+        border-radius: 0.6rem;
+        padding: 1.4rem 1.5rem;
+        transition: border-color .14s ease, background .14s ease, transform .06s ease;
+      }
+      .mode-card:hover { border-color: var(--amber); background: rgba(232,163,23,0.05); }
+      .mode-card:active { transform: translateY(1px); }
+      .mode-card .dur {
+        font-family: var(--sans); font-size: 0.7rem; letter-spacing: 0.12em;
+        text-transform: uppercase; color: var(--amber); font-weight: 600;
+      }
+      .mode-card h3 { margin: 0.35rem 0 0.4rem; font-size: 1.35rem; font-weight: 700; }
+      .mode-card p { margin: 0; color: var(--ink-dim); font-size: 0.95rem; line-height: 1.5; }
+
+      .hint-line { margin-top: 2rem; color: var(--ink-dim); font-size: 0.9rem; font-style: italic; }
+
+      /* ---------- front-page structure overview ---------- */
+      .overview { margin: 1.4rem 0 0; }
+      .overview .ov-head {
+        display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.7rem;
+      }
+      .overview .ov-name { font-size: 1.15rem; font-weight: 700; }
+      .overview .ov-dur {
+        font-family: var(--sans); font-size: 0.7rem; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--amber); font-weight: 600;
+      }
+      .ov-steps {
+        display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem;
+      }
+      .ov-step {
+        flex: 1 1 7rem; min-width: 6rem;
+        border: 1px solid var(--line); border-radius: 0.5rem;
+        padding: 0.6rem 0.7rem; background: rgba(255,255,255,0.015);
+      }
+      .ov-step .n {
+        font-family: var(--sans); font-size: 0.62rem; letter-spacing: 0.12em;
+        text-transform: uppercase; color: var(--ink-dim);
+      }
+      .ov-step .t { font-size: 0.95rem; line-height: 1.2; margin: 0.15rem 0 0.25rem; }
+      .ov-step .m {
+        font-family: var(--sans); font-size: 0.72rem; color: var(--amber);
+      }
+      .ov-arrow { align-self: center; color: var(--ink-faint); font-size: 0.9rem; }
+      @media (max-width: 34rem) {
+        .ov-steps { flex-direction: column; }
+        .ov-arrow { display: none; }
+        .ov-step { flex-basis: auto; }
+      }
+
+      /* ===================== session ===================== */
+      #session { display: none; min-height: 100vh; }
+      body.in-session .brandbar { display: none; }
+
+      .stage-screen {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: clamp(1rem, 2.5vw, 1.8rem) clamp(1rem, 3vw, 2.5rem) 4rem;
+      }
+
+      /* top row: small timer at the RIGHT (secondary), exit at the left */
+      .stage-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: clamp(0.8rem, 2vh, 1.4rem);
+      }
+      .stage-top .left { display: flex; align-items: center; gap: 0.6rem; }
+      .mini-mark { font-weight: 700; font-size: 0.95rem; color: var(--ink-dim); }
+      .mini-mark sup { font-size: 0.55em; }
+
+      .clock {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        font-family: var(--sans);
+        font-variant-numeric: tabular-nums;
+      }
+      .clock .label {
+        font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+      .clock .time {
+        font-size: 1.5rem; font-weight: 300; letter-spacing: 0.01em; color: var(--ink);
+      }
+      .clock.warn .time { color: var(--amber); }
+      body.resting .clock .time { color: var(--amber-soft); }
+      .clock .bar {
+        width: 4.5rem; height: 3px; border-radius: 2px; background: var(--line);
+        overflow: hidden; align-self: center;
+      }
+      .clock .bar i { display: block; height: 100%; background: var(--amber); width: 100%; transition: width 1s linear; }
+
+      /* ---------- flow diagram (the "where am I" nav) ---------- */
+      .flow {
+        --box-w: clamp(4.6rem, 13vw, 8.2rem);
+        font-family: var(--serif);
+        margin: 0 auto clamp(1rem, 3vh, 2rem);
+        width: 100%;
+        max-width: 60rem;
+        overflow-x: auto;
+      }
+      .flow table { border-collapse: collapse; margin-inline: auto; }
+      .flow td { text-align: center; vertical-align: middle; padding: 0; }
+      .flow .rowlabel {
+        font-style: italic; color: var(--ink-dim); font-size: 0.78rem;
+        text-align: right; padding-right: 0.8rem; white-space: nowrap;
+      }
+      .flow .clockcell {
+        font-family: var(--sans); font-size: 0.72rem; color: var(--ink-dim);
+        padding-bottom: 0.35rem; white-space: nowrap;
+      }
+      .flow .clockcell.active { color: var(--amber); font-weight: 600; }
+      .flow .clockcell .stop { opacity: 0.8; margin-right: 0.15rem; }
+
+      .flow .pbox, .flow .hbox {
+        width: var(--box-w);
+        line-height: 1.15;
+        color: var(--ink-dim);
+        border: 1.5px solid var(--line);
+        transition: color .25s ease, border-color .25s ease, background .25s ease;
+      }
+      .flow .pbox {
+        border-radius: 0.7rem;
+        padding: 0.55rem 0.3rem;
+        font-size: clamp(0.72rem, 1.7vw, 0.95rem);
+        min-height: 3.4rem;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .flow .hbox {
+        border-radius: 0.15rem;
+        padding: 0.5rem 0.3rem;
+        font-size: clamp(0.68rem, 1.6vw, 0.9rem);
+        min-height: 2.8rem;
+        display: flex; align-items: center; justify-content: center;
+      }
+      /* active stage glows amber */
+      .flow .pbox.active, .flow .hbox.active {
+        color: var(--amber); border-color: var(--amber);
+        background: rgba(232,163,23,0.06);
+      }
+      .flow .pbox.done, .flow .hbox.done { color: #7d7d79; border-color: #4a4a48; }
+
+      .flow .arrow { color: var(--ink-faint); font-size: 0.8rem; line-height: 1; }
+      .flow .arrowcell { padding: 0.25rem 0; }
+      .flow .down { font-size: 0.85rem; color: var(--line); }
+      .flow .down.active { color: var(--amber); }
+      .flow .down.cur-handoff { color: var(--ink-dim); }
+      .flow .connect { width: 0.7rem; }
+
+      /* ---------- stage content ---------- */
+      .stage-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        max-width: 52rem;
+        margin-inline: auto;
+        width: 100%;
+      }
+      .stage-heading {
+        font-size: clamp(1.6rem, 5vw, 2.7rem);
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+        margin: 0 0 1.4rem;
+      }
+      .stage-heading .sep { color: var(--ink-faint); font-weight: 400; margin: 0 0.4rem; }
+      .stage-heading .subtitle { color: var(--amber); }
+
+      .prompts { list-style: none; margin: 0 0 1.2rem; padding: 0; }
+      .prompts li {
+        font-size: clamp(1.05rem, 2.6vw, 1.5rem);
+        line-height: 1.4;
+        margin-bottom: 0.55rem;
+        color: var(--ink);
+      }
+      .prompts.bulleted li { position: relative; padding-left: 1.3rem; }
+      .prompts.bulleted li::before {
+        content: "•"; color: var(--amber); position: absolute; left: 0.2rem;
+      }
+      .prompts li em { font-style: italic; }
+      .prompts li b { color: var(--ink); font-weight: 700; }
+      .prompts li u { text-decoration-color: var(--amber); text-underline-offset: 0.2em; }
+
+      .keep-writing {
+        font-size: clamp(1.05rem, 2.6vw, 1.4rem);
+        margin: 0.4rem 0 1.4rem;
+      }
+      .keep-writing em { color: var(--ink); font-style: italic; }
+
+      .faint {
+        color: var(--ink-faint);
+        font-size: clamp(0.95rem, 2.3vw, 1.25rem);
+        line-height: 1.4;
+        margin: 0.5rem 0 0;
+      }
+      .faint em { font-style: italic; }
+
+      .rest-screen { text-align: center; }
+      .rest-screen .resetword {
+        font-family: var(--sans); font-size: 0.74rem; letter-spacing: 0.2em;
+        text-transform: uppercase; color: var(--amber-soft); margin-bottom: 1rem;
+      }
+      .rest-screen .bigtime {
+        font-family: var(--sans); font-weight: 200; font-variant-numeric: tabular-nums;
+        font-size: clamp(3.5rem, 14vw, 6rem); line-height: 1; color: var(--amber-soft);
+        margin-bottom: 1rem;
+      }
+      .rest-screen p { font-size: clamp(1.1rem, 3vw, 1.5rem); color: #d6d6d3; max-width: 32rem; margin-inline: auto; }
+
+      /* ---------- controls ---------- */
+      .controls {
+        display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center;
+        margin-top: clamp(1.2rem, 4vh, 2.2rem);
+      }
+      .btn {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.02);
+        color: var(--ink);
+        border-radius: 0.5rem;
+        padding: 0.6rem 1.25rem;
+        font-size: 0.95rem;
+        font-family: var(--serif);
+        transition: background .12s ease, border-color .12s ease, transform .06s ease;
+      }
+      .btn:hover { background: rgba(255,255,255,0.06); border-color: var(--ink-dim); }
+      .btn:active { transform: translateY(1px); }
+      .btn.primary {
+        background: var(--amber); border-color: var(--amber); color: #1a1408; font-weight: 700;
+      }
+      .btn.primary:hover { background: var(--amber-soft); border-color: var(--amber-soft); }
+      .btn.ghost { border-color: transparent; color: var(--ink-dim); padding-inline: 0.6rem; }
+      .btn.ghost:hover { background: rgba(255,255,255,0.05); color: var(--ink); }
+      .btn.lg { padding: 0.85rem 1.9rem; font-size: 1.05rem; }
+
+      .stage-controls { display: flex; justify-content: space-between; align-items: center; }
+
+      /* ---------- finish ---------- */
+      .finish { max-width: 42rem; margin: 0 auto; text-align: center; }
+      .finish .resetword {
+        font-family: var(--sans); font-size: 0.74rem; letter-spacing: 0.2em;
+        text-transform: uppercase; color: var(--amber); margin-bottom: 0.8rem;
+      }
+      .finish h2 { font-size: clamp(1.9rem, 6vw, 3rem); font-weight: 700; margin: 0 0 1rem; }
+      .finish .recap {
+        text-align: left; margin: 1.5rem 0; padding: 1.2rem 1.5rem;
+        border-left: 2px solid var(--amber); color: #d6d6d3; font-style: italic;
+      }
+      .finish .nextq { font-size: 1.3rem; margin: 1.5rem 0 0.4rem; }
+      @media (max-width: 30rem) {
+        .stage-controls { flex-direction: column; gap: 0.8rem; align-items: stretch; }
+        .copyright { font-size: 0.55rem; max-width: 70vw; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ===================== INTRO ===================== -->
+    <main id="intro" class="intro">
+      <div class="wrap">
+        <div class="brandbar">
+          <span class="mark">HDIT<sup>™</sup></span>
+          <span class="at">@ Home</span>
+        </div>
+
+        <h1 class="hero-title">
+          <span class="hd">High Density</span>
+          <span class="it">Interval Thinking</span>
+        </h1>
+        <p class="hero-sub">A timed thinking practice you can run on your own.</p>
+
+        <p class="lead">Short bursts of focused thinking, separated by deliberate rests, so you can think for yourself before reaching for more information.</p>
+
+        <p>It moves you from a broad topic to a clearer question, then to one workable idea, then to a single concrete next step. It is not about producing a perfect answer. It is about making rough thinking useful.</p>
+
+        <p>You&rsquo;ll need a notebook or a blank page, and a quiet 15 or 40 minutes. This page keeps the timing and shows you where you are in the process. The thinking and writing happen on your own paper. Nothing you write here is stored or sent anywhere.</p>
+
+        <ul class="principles">
+          <li><em>Any topic</em> works. It really doesn&rsquo;t matter.</li>
+          <li>No wrong way to do this, as long as you&rsquo;re <em>concentrating</em>.</li>
+          <li>If you feel like you could be <em>wasting time</em>, you&rsquo;re probably doing it right.</li>
+          <li>If another topic comes up, jot it on the side of your page and keep going.</li>
+        </ul>
+
+        <div class="section-label">What you&rsquo;ll go through</div>
+        <p style="max-width:42rem;color:#d6d6d3;">Each session is a fixed sequence of short, timed stages. You move through them one at a time, writing on your own paper. Here&rsquo;s the whole shape of each before you start, so nothing is a surprise.</p>
+        <div id="overviews"></div>
+
+        <div class="section-label">Choose a session</div>
+        <div class="modes" id="modes"></div>
+
+        <p class="hint-line">Best experienced full screen. You can pause, skip, or leave at any time.</p>
+      </div>
+    </main>
+
+    <!-- ===================== SESSION ===================== -->
+    <section id="session" aria-live="polite">
+      <div class="stage-screen">
+        <div class="stage-top">
+          <div class="left">
+            <span class="mini-mark">HDIT<sup>™</sup></span>
+            <button class="btn ghost" id="exitBtn">Exit</button>
+          </div>
+          <div class="clock" id="clock">
+            <span class="label" id="clockLabel">Time left</span>
+            <span class="bar"><i id="clockBar"></i></span>
+            <span class="time" id="clockTime">5:00</span>
+          </div>
+        </div>
+
+        <!-- flow diagram = where you are -->
+        <div class="flow" id="flow"></div>
+
+        <div class="stage-main" id="stageMain"><!-- filled by JS --></div>
+
+        <div class="stage-controls wrap" style="max-width:52rem; justify-content:flex-end;">
+          <button class="btn ghost" id="fsBtn">⛶ Full screen</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- persistent copyright, as on every slide -->
+    <div class="copyright">
+      © 2025 Sithan Kanna. All rights reserved.<br>
+      &ldquo;HDIT™&rdquo; is an unregistered trademark of Sithan Kanna.
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        /* Each session has its own set of stages for the flow diagram.
+           A work step maps to a Process box (+ optional Handoff box). */
+
+        // Full session: the five-stage think-from-topic process (40-min deck).
+        const STAGES_FULL = [
+          { proc: "Warm Up",               handoff: "Topic" },
+          { proc: "Clarify the\nQuestion", handoff: "Key\nQuestion" },
+          { proc: "Generate\nIdeas",       handoff: "One Idea" },
+          { proc: "Refine Idea",           handoff: "Next Step" },
+          { proc: "Cool-Down",             handoff: null }
+        ];
+
+        // 15-min session: New Year goal-setting flow (HDIT 15 deck).
+        const STAGES_MINI = [
+          { proc: "Clarify\nyour Goal",       handoff: "Goal" },
+          { proc: "What action\ncan you take?", handoff: "Actions" },
+          { proc: "Who can you\nask for help?", handoff: "People" }
+        ];
+
+        /* Full session content. Wording lifted from the slides. */
+        const FULL = {
+          id: "full",
+          stages: STAGES_FULL,
+          steps: [
+            { type: "work", stage: 0, heading: ["Warm Up", "Pick a Topic"], mins: 5,
+              prompts: ["Setting the foundation.", "Choose your focus topic.", "Clear your environment of distractions.", "Don&rsquo;t worry about choosing the <em>right</em> topic."] },
+            { type: "rest", after: 0, mins: 0.5,
+              msg: "Pause. Look up from the page. One slow breath, then the timed thinking begins." },
+
+            { type: "work", stage: 1, heading: ["Clarify the Question", "Change One Word"], mins: 10,
+              prompts: ["Write your question down in big bold letters.", "Change one word at a time."],
+              example: ["How do I <b>get</b> new customers?", "<u>When</u> do I get new customers?", "How <u>will</u> I get new customers?", "How will <u>Bob</u> get new customers?"],
+              faint: "Pick the question that makes you most <b>curious</b>. Circle it. That&rsquo;s your Key Question. You&rsquo;ll work on it next." },
+            { type: "rest", after: 1, mins: 2,
+              msg: "Two-minute rest. Stand, stretch, look away from your notes. Let the question sit." },
+
+            { type: "work", stage: 2, heading: ["Generate Ideas", "100x"], mins: 10,
+              prompts: ["Using the question from the previous section, ask yourself: what if you answered a version that was&hellip;"],
+              bullets: ["100x bigger, more impactful", "could be done 100x faster (e.g. from 1 year &rarr; 1 week)", "applicable to 100x more people"],
+              keep: "Keep writing, <em>don&rsquo;t stop.</em>",
+              faint: "Pick <em>one</em> idea. It doesn&rsquo;t have to be the &ldquo;best&rdquo;. You&rsquo;ll work on it next." },
+            { type: "rest", after: 2, mins: 2,
+              msg: "Two-minute rest. Shake it out. Don&rsquo;t judge what you wrote yet." },
+
+            { type: "work", stage: 3, heading: ["Refine", "Eliminate the Obstacle"], mins: 10,
+              prompts: ["What&rsquo;s the obstacle that stops the idea from working?", "Where do I feel resistance?", "What one tiny action could I take to overcome that?", "What&rsquo;s the domino that could make the rest fall in place?"],
+              keep: "Keep writing, <em>don&rsquo;t stop.</em>",
+              faint: "Identify a single action you can take after this to move forward. <em>e-Mail, WhatsApp, Call, Google?</em>" },
+            { type: "rest", after: 3, mins: 2,
+              msg: "Last rest. Breathe. You&rsquo;re about to review what came out." },
+
+            { type: "work", stage: 4, heading: ["Cool Down", null], mins: 5,
+              bullets: ["Review key insights from all stations", "Circle other ideas / questions that came out of the session", "Re-write your Next Step"] }
+          ]
+        };
+
+        /* 15-min session: New Year Goal Setting (HDIT 15 deck).
+           A different, narrower flow from the 40-min session. */
+        const MINI = {
+          id: "mini",
+          stages: STAGES_MINI,
+          steps: [
+            { type: "work", stage: 0, heading: ["Clarify your Goal", null], mins: 2,
+              prompts: ["Name the goal you want to work on.", "Write it down in one clear line, before breaking it into actions."],
+              faint: "Don&rsquo;t worry about it being the perfect goal. Just pick one." },
+            { type: "rest", after: 0, mins: 0.33, msg: "One breath. Now turn the goal into action." },
+
+            { type: "work", stage: 1, heading: ["What one action", "can you take?"], mins: 6,
+              prompts: ["What is one <b>5-min action</b> you can take <b>today</b> to move closer to your goal?", "What is one <b>5-min action</b> you can take <b>every day this month</b> to move closer to your goal?", "If you had <b>25 hours</b> in a day, how would you spend the <b>extra hour</b> on your goal?"],
+              keep: "Keep writing, <em>don&rsquo;t stop.</em>" },
+            { type: "rest", after: 1, mins: 0.33, msg: "Pause. Now think about who can help." },
+
+            { type: "work", stage: 2, heading: ["Who can you", "ask for help?"], mins: 6,
+              prompts: ["Who can you <b>WhatsApp</b> for help?", "Who can you <b>e-Mail</b> for help?", "Who can you <b>call</b> for help?", "Who can you <b>visit in person</b> for help?", "Who can you <b>message on Instagram</b> for help?"],
+              faint: "Pick one person and one channel. That&rsquo;s your Next Step." }
+          ]
+        };
+
+        const SESSIONS = { full: FULL, mini: MINI };
+
+        const $ = (s) => document.querySelector(s);
+        const intro = $("#intro");
+        const session = $("#session");
+        const stageMain = $("#stageMain");
+        const flowEl = $("#flow");
+        const clock = $("#clock");
+        const clockTime = $("#clockTime");
+        const clockBar = $("#clockBar");
+        const clockLabel = $("#clockLabel");
+
+        /* ---------- intro cards ---------- */
+        [
+          { id: "mini", title: "15-Minute Session", dur: "~15 min", desc: "Goal setting. Clarify a goal, find small daily actions, and pick someone who can help. Ends with one next step." },
+          { id: "full", title: "Full Session", dur: "~40 min", desc: "The complete five-stage practice: Warm Up, Clarify the Question, Generate Ideas, Refine, Cool-Down, with rests between each." }
+        ].forEach((c) => {
+          const b = document.createElement("button");
+          b.className = "mode-card";
+          b.innerHTML = `<span class="dur">${c.dur}</span><h3>${c.title}</h3><p>${c.desc}</p>`;
+          b.addEventListener("click", () => start(c.id));
+          $("#modes").appendChild(b);
+        });
+
+        /* ---------- front-page structure overviews ---------- */
+        function buildOverview(sessionPlan, label, dur) {
+          const works = sessionPlan.steps.filter((s) => s.type === "work");
+          let steps = "";
+          works.forEach((w, i) => {
+            const name = sessionPlan.stages[w.stage].proc.replace(/\n/g, " ");
+            steps += `<div class="ov-step"><div class="n">Stage ${i + 1}</div>` +
+                     `<div class="t">${name}</div><div class="m">${fmtMins(w.mins)}</div></div>`;
+            if (i < works.length - 1) steps += `<div class="ov-arrow">→</div>`;
+          });
+          return `<div class="overview"><div class="ov-head">` +
+                 `<span class="ov-name">${label}</span><span class="ov-dur">${dur}</span></div>` +
+                 `<div class="ov-steps">${steps}</div></div>`;
+        }
+        $("#overviews").innerHTML =
+          buildOverview(MINI, "15-Minute Session: Goal Setting", "~15 min") +
+          buildOverview(FULL, "Full Session: Think a Problem Through", "~40 min");
+
+        /* ---------- state ---------- */
+        let plan = null, idx = 0, remaining = 0, total = 0, tickId = null, paused = false;
+
+        function start(id) {
+          plan = SESSIONS[id];
+          idx = 0;
+          document.body.classList.add("in-session");
+          intro.style.display = "none";
+          session.style.display = "block";
+          render();
+          window.scrollTo(0, 0);
+        }
+
+        function fmt(s) {
+          s = Math.max(0, Math.round(s));
+          return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+        }
+        // Label for the flow diagram: whole minutes show "5m", sub-minute shows "20s".
+        function fmtMins(m) {
+          if (m >= 1) return Math.round(m) + "m";
+          return Math.round(m * 60) + "s";
+        }
+        function clearTick() { if (tickId) { clearInterval(tickId); tickId = null; } }
+
+        function render() {
+          clearTick();
+          paused = false;
+          clock.classList.remove("warn");
+          if (idx >= plan.steps.length) return finish();
+          const step = plan.steps[idx];
+          total = step.mins * 60;
+          remaining = total;
+          document.body.classList.toggle("resting", step.type === "rest");
+          // which stage is "current" for the flow diagram:
+          const curStage = step.type === "work" ? step.stage : step.after; // rest highlights the stage just finished's handoff transition
+          buildFlow(curStage, step.type);
+          clockLabel.textContent = step.type === "rest" ? "Rest" : "Time left";
+          step.type === "rest" ? renderRest(step) : renderWork(step);
+          updateClock();
+          startTick();
+        }
+
+        /* ----- flow diagram (Process row + Handoff row) ----- */
+        function buildFlow(curStage, stepType) {
+          const stages = plan.stages;
+          const n = stages.length;
+          // Times come from the ACTUAL current session, so the diagram always
+          // matches the running clock.
+          const procTimes = [];   // minutes for each work stage
+          const restTimes = {};   // minutes for the reset after stage i
+          plan.steps.forEach((s) => {
+            if (s.type === "work") procTimes[s.stage] = fmtMins(s.mins);
+            else if (s.type === "rest") restTimes[s.after] = fmtMins(s.mins);
+          });
+          let html = '<table><tbody>';
+
+          // clock row (above process boxes)
+          html += '<tr><td class="rowlabel"></td>';
+          for (let i = 0; i < n; i++) {
+            const act = i === curStage ? "active" : "";
+            html += `<td class="clockcell ${act}"><span class="stop">⏱</span>${procTimes[i] || ""}</td>`;
+            if (i < n - 1) html += '<td class="connect"></td>';
+          }
+          html += '</tr>';
+
+          // process row
+          html += '<tr><td class="rowlabel">Process</td>';
+          for (let i = 0; i < n; i++) {
+            const cls = i === curStage ? "active" : (i < curStage ? "done" : "");
+            html += `<td><div class="pbox ${cls}">${stages[i].proc.replace(/\n/g, "<br>")}</div></td>`;
+            if (i < n - 1) html += `<td class="connect"><span class="arrow">→</span></td>`;
+          }
+          html += '</tr>';
+
+          // down-arrow row (each process hands down to its handoff)
+          html += '<tr><td class="rowlabel"></td>';
+          for (let i = 0; i < n; i++) {
+            if (stages[i].handoff) {
+              const cls = i === curStage ? "active" : "";
+              html += `<td><span class="down ${cls}">▼</span></td>`;
+            } else { html += '<td></td>'; }
+            if (i < n - 1) html += '<td></td>';
+          }
+          html += '</tr>';
+
+          // handoff row
+          html += '<tr><td class="rowlabel">Handoff</td>';
+          for (let i = 0; i < n; i++) {
+            if (stages[i].handoff) {
+              const cls = i === curStage ? "active" : (i < curStage ? "done" : "");
+              html += `<td><div class="hbox ${cls}">${stages[i].handoff.replace(/\n/g, "<br>")}</div></td>`;
+            } else { html += '<td></td>'; }
+            if (i < n - 1) html += '<td></td>';
+          }
+          html += '</tr>';
+
+          // handoff clock row (reset markers under each stage)
+          html += '<tr><td class="rowlabel"></td>';
+          for (let i = 0; i < n; i++) {
+            if (restTimes[i] && stages[i].handoff) {
+              const act = i === curStage ? "active" : "";
+              html += `<td class="clockcell ${act}" style="padding-top:.3rem"><span class="stop">⏱</span>${restTimes[i]}</td>`;
+            } else { html += '<td></td>'; }
+            if (i < n - 1) html += '<td></td>';
+          }
+          html += '</tr>';
+
+          html += '</tbody></table>';
+          flowEl.innerHTML = html;
+        }
+
+        function renderWork(step) {
+          const [t, sub] = step.heading;
+          let h = `<h2 class="stage-heading">${t}`;
+          if (sub) h += `<span class="sep">|</span><span class="subtitle">${sub}</span>`;
+          h += `</h2>`;
+
+          if (step.prompts) {
+            h += `<ul class="prompts">${step.prompts.map((p) => `<li>${p}</li>`).join("")}</ul>`;
+          }
+          if (step.example) {
+            h += `<ul class="prompts" style="margin-top:.4rem">${step.example.map((p) => `<li>${p}</li>`).join("")}</ul>`;
+          }
+          if (step.bullets) {
+            h += `<ul class="prompts bulleted">${step.bullets.map((p) => `<li>${p}</li>`).join("")}</ul>`;
+          }
+          if (step.keep) h += `<p class="keep-writing">${step.keep}</p>`;
+          if (step.faint) h += `<p class="faint">${step.faint}</p>`;
+
+          h += `<div class="controls">
+                  <button class="btn" id="pauseBtn">Pause</button>
+                  <button class="btn primary" id="nextBtn">Done, next ›</button>
+                </div>`;
+          stageMain.innerHTML = h;
+          $("#nextBtn").addEventListener("click", advance);
+          const pb = $("#pauseBtn");
+          pb.addEventListener("click", () => {
+            paused = !paused;
+            pb.textContent = paused ? "Resume" : "Pause";
+            pb.classList.toggle("primary", paused);
+          });
+        }
+
+        function renderRest(step) {
+          stageMain.innerHTML = `
+            <div class="rest-screen">
+              <div class="resetword">Rest</div>
+              <div class="bigtime" id="restBig">${fmt(remaining)}</div>
+              <p>${step.msg}</p>
+              <div class="controls" style="justify-content:center">
+                <button class="btn primary" id="nextBtn">Skip rest ›</button>
+              </div>
+            </div>`;
+          $("#nextBtn").addEventListener("click", advance);
+        }
+
+        function startTick() {
+          tickId = setInterval(() => {
+            if (paused) return;
+            remaining -= 1;
+            updateClock();
+            const big = $("#restBig");
+            if (big) big.textContent = fmt(remaining);
+            if (remaining <= 30 && plan.steps[idx].type === "work") clock.classList.add("warn");
+            if (remaining <= 0) { chime(); advance(); }
+          }, 1000);
+        }
+
+        function updateClock() {
+          clockTime.textContent = fmt(remaining);
+          clockBar.style.width = (Math.max(0, remaining) / total * 100) + "%";
+        }
+
+        function advance() { clearTick(); idx += 1; render(); }
+
+        function chime() {
+          try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            const ctx = new Ctx();
+            [660, 880].forEach((f, i) => {
+              const o = ctx.createOscillator(), g = ctx.createGain();
+              o.type = "sine"; o.frequency.value = f;
+              const t0 = ctx.currentTime + i * 0.18;
+              g.gain.setValueAtTime(0, t0);
+              g.gain.linearRampToValueAtTime(0.13, t0 + 0.02);
+              g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+              o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + 0.55);
+            });
+            setTimeout(() => ctx.close(), 1500);
+          } catch (e) {}
+        }
+
+        function finish() {
+          clearTick();
+          document.body.classList.remove("resting");
+          buildFlow(plan.stages.length, "done"); // all done
+          stageMain.innerHTML = `
+            <div class="finish">
+              <div class="resetword">Done</div>
+              <h2>That&rsquo;s a session.</h2>
+              <div class="recap">You moved from a topic, to a sharper question, to one idea, to a single next step. The thinking was yours. Now you can test it against AI, data, or a search if you want to.</div>
+              <p class="nextq"><strong>What is your one Next Step?</strong></p>
+              <p class="faint" style="text-align:center">Write it where you&rsquo;ll see it. Then go do the smallest version of it.</p>
+              <div class="controls" style="justify-content:center">
+                <button class="btn primary lg" id="againBtn">Run another session</button>
+                <button class="btn" id="backBtn">Back to start</button>
+              </div>
+            </div>`;
+          $("#againBtn").addEventListener("click", () => start(plan.id));
+          $("#backBtn").addEventListener("click", reset);
+        }
+
+        function reset() {
+          clearTick();
+          document.body.classList.remove("in-session", "resting");
+          session.style.display = "none";
+          intro.style.display = "";
+          if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+          window.scrollTo(0, 0);
+        }
+
+        function escapeHtml(s) {
+          return s.replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+        }
+
+        /* ---------- controls ---------- */
+        $("#exitBtn").addEventListener("click", () => {
+          if (confirm("Leave this session? Your timer will reset.")) reset();
+        });
+        const fsBtn = $("#fsBtn");
+        fsBtn.addEventListener("click", () => {
+          if (document.fullscreenElement) { if (document.exitFullscreen) document.exitFullscreen().catch(()=>{}); }
+          else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+        });
+        document.addEventListener("fullscreenchange", () => {
+          fsBtn.textContent = document.fullscreenElement ? "⛶ Exit full screen" : "⛶ Full screen";
+        });
+        document.addEventListener("keydown", (e) => {
+          if (session.style.display !== "block") return;
+          if (e.code === "Space") { e.preventDefault(); const p = $("#pauseBtn"); if (p) p.click(); }
+          else if (e.code === "ArrowRight" || e.code === "Enter") { const nx = $("#nextBtn"); if (nx) nx.click(); }
+        });
+      })();
+    </script>
+  </body>
+</html>
