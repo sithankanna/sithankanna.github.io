@@ -304,21 +304,22 @@
         </figure>
 
         <p>
-          The estimate lands within a handful of layers for most models, and is
-          tightest for the largest ones (124 vs. 126 for Llama-3-405B). Beyond that,
-          I haven't investigated each architecture in detail — this is a
-          back-of-the-envelope estimate, so treat what follows as intuition rather
-          than a precise accounting.
+          I was quite surprised that the estimates are quite close to the actual.
+          Beyond that, I haven't investigated each architecture in detail; this is a
+          back-of-the-envelope estimate.
         </p>
         <p>
           The direction of the error still tells us something simple. If the formula
           overshoots the layer count, then more parameters must be going into each
           transformer block than our assumed \(12d^2_{\text{emb}}\), and the formula
-          makes up the difference by inventing extra layers. For the Qwen models
+          makes up the difference by adding extra layers. For the Qwen models
           (e.g. Qwen2.5-7B), the MLP blocks are larger than the \(4\times\) expansion
-          we assumed, so each real block costs more than \(12d^2_{\text{emb}}\) and
-          we overshoot. Conversely, we underestimate the layers for Mistral-Large,
-          which means each of its transformer blocks holds fewer parameters than
+          we assumed, so each real block costs more than \(12d^2_{\text{emb}}\) and we
+          overshoot.
+        </p>
+        <p>
+          On the other hand, we underestimate the layers for Mistral-Large, which
+          means each of its transformer blocks holds fewer parameters than
           \(12d^2_{\text{emb}}\).
         </p>
       </article>
