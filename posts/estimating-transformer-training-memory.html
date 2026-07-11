@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A first-order derivation of the memory needed to train a decoder-style transformer, separating model state from saved activations.">
+    <title>Estimating Transformer Training Memory</title>
+    <link rel="stylesheet" href="../css/site.css">
+    <script src="../js/mathjax-config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script defer src="../js/toc.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell">
+        <a class="site-name" href="../index.html">Sithan Kanna</a>
+      </div>
+    </header>
+
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Contents">
+        <nav>
+          <h2>Contents</h2>
+          <a href="#weights">1. Loading the Weights</a>
+          <a href="#activations">2. Forward-Pass Activations</a>
+          <a class="toc-sub" href="#layernorm">2.1 LayerNorm</a>
+          <a class="toc-sub" href="#attention">2.2 Self-Attention</a>
+          <a class="toc-sub" href="#feed-forward">2.3 Feed-Forward Layer</a>
+          <a href="#backward">3. Backward-Pass Values</a>
+          <a href="#total">4. Putting Everything Together</a>
+          <a href="#example">5. Worked Example and Model Sizes</a>
+          <a href="#real-world">6. Does This Hold in the Real World?</a>
+          <a href="#changes">7. What Changes the Estimate?</a>
+        </nav>
+      </aside>
+
+      <article class="post-body">
+        <h1>Estimating Transformer Training Memory</h1>
+        <p class="post-meta">Draft &middot; 11 July 2026</p>
+
+        <p>
+          We are going to estimate the memory needed to train a transformer. As
+          in the layer-count estimate, we will take a simplified view of a
+          decoder-style transformer. The goal is not to reproduce the exact
+          number reported by a particular deep-learning framework. It is to see
+          which parts of the architecture consume memory, and how that memory
+          changes with the batch size and sequence length.
+        </p>
+
+        <p>
+          We will use a transformer with \(L\) layers, embedding dimension
+          \(d_{\text{emb}}\), \(n_{\text{head}}\) attention heads, vocabulary size
+          \(d_{\text{vocab}}\), batch size \(B\), and sequence length \(T\). Let
+          \(N_{\text{param}}\) denote the total number of model parameters.
+        </p>
+
+        <p>We will count the memory in the same order that training uses it:</p>
+
+        <ol>
+          <li>
+            load the weights;
+          </li>
+          <li>
+            perform the forward pass and save its activations; and
+          </li>
+          <li>
+            store the values needed for the backward pass and optimiser update.
+          </li>
+        </ol>
+
+        <p>
+          The first and third parts are mainly controlled by the number of
+          parameters. Forward-pass activation memory is controlled by the shapes
+          of the tensors flowing through the model. This distinction matters: two
+          training runs using the same model can have very different memory
+          requirements merely because they use different values of \(B\) and
+          \(T\).
+        </p>
+
+        <h2 class="section" id="weights">Loading the Weights</h2>
+        <p>
+          The model starts with \(N_{\text{param}}\) weights. If the weights are
+          stored in FP32, each one occupies 4 bytes. Merely loading the model
+          therefore requires
+        </p>
+
+        \begin{align}
+        M_{\text{weights}}
+        = {} & 4N_{\text{param}} \text{ bytes}.
+        \label{eq:weights}
+        \end{align}
+
+        <p>
+          In FP16 or BF16, the working weights occupy 2 bytes each, so this part
+          would instead be \(2N_{\text{param}}\) bytes. That is not the full
+          training requirement: the gradients and optimiser state arrive when we
+          consider the backward pass.
+        </p>
+
+        <div class="callout">
+          <p>
+            Loading 7 billion FP32 weights requires 28 GB before we store a
+            single activation or gradient.
+          </p>
+        </div>
+
+        <h2 class="section" id="activations">Forward-Pass Activations</h2>
+        <p>
+          The forward pass produces intermediate tensors called activations. We
+          have to retain enough of them to calculate gradients during the
+          backward pass. Let \(s\) be the number of bytes used by each saved
+          activation: \(s=2\) for FP16 or BF16 and \(s=4\) for FP32. We will
+          first count the number of scalar values and multiply by \(s\) at the
+          end.
+        </p>
+
+        <p>
+          The input embedding has shape
+          \(B \times T \times d_{\text{emb}}\), so it contributes
+          \(BTd_{\text{emb}}\) values. We next count the activations inside one
+          transformer layer.
+        </p>
+
+        <h3 class="subsection" id="layernorm">LayerNorm</h3>
+        <p>
+          We will use a pre-norm transformer block. In this arrangement, the
+          input to the layer is normalised before self-attention. After the
+          attention output is added back to the residual stream, the result is
+          normalised again before entering the feed-forward layer:
+        </p>
+
+        \[
+        \begin{aligned}
+        \widetilde{\X}_{\ell}
+        &= \X_{\ell}
+        + \textsf{Self-Attention}\left(\textsf{LayerNorm}(\X_{\ell})\right), \\
+        \X_{\ell+1}
+        &= \widetilde{\X}_{\ell}
+        + \textsf{Feed-Forward}\left(\textsf{LayerNorm}(\widetilde{\X}_{\ell})\right).
+        \end{aligned}
+        \]
+
+        <figure class="fig" id="fig-layernorm-activations">
+          <img src="../assets/figures/fig-layernorm-activations.svg" alt="Pre-norm transformer block with LayerNorm before self-attention and before the feed-forward layer; each LayerNorm output has B by T by d_emb values" width="760">
+          <figcaption>
+            <span class="fig-label">Figure 1.</span> LayerNorm appears twice in a
+            pre-norm transformer block. The residual paths bypass the sublayers.
+          </figcaption>
+        </figure>
+
+        <p>
+          Each LayerNorm output has shape
+          \(B \times T \times d_{\text{emb}}\). There are two LayerNorm
+          operations in each transformer block, so their main outputs contribute
+        </p>
+
+        \begin{align}
+        n_{\text{act}}[\text{LayerNorm}]
+        = {} & 2BTd_{\text{emb}}.
+        \label{eq:layernorm_activations}
+        \end{align}
+
+        <p>
+          For the backward pass, each LayerNorm may also save a mean and inverse
+          standard deviation for every token. With two LayerNorms, that is four
+          additional saved values per token in each transformer layer. We omit
+          these smaller values from our first-order estimate.
+        </p>
+
+        <h3 class="subsection" id="attention">Self-Attention</h3>
+        <p>
+          The query, key, and value tensors each have shape
+          \(B \times T \times d_{\text{emb}}\) after all heads are considered.
+          Together they contain
+        </p>
+
+        \[
+        3BTd_{\text{emb}}
+        \]
+
+        <p>
+          values. The attention score tensor \(\Q\K^\T\) has shape
+          \(B \times n_{\text{head}} \times T \times T\). Applying softmax
+          produces another tensor of the same shape. These two tensors contribute
+        </p>
+
+        \[
+        2Bn_{\text{head}}T^2
+        \]
+
+        <p>
+          values. Multiplying the attention probabilities by \(\V\) produces
+          \(BTd_{\text{emb}}\) values, and the output projection produces another
+          \(BTd_{\text{emb}}\). Under this bookkeeping, the self-attention part of
+          one layer therefore contributes
+        </p>
+
+        <figure class="fig" id="fig-attention-activations">
+          <img src="../assets/figures/fig-attention-activations.svg" alt="Self-attention activation flow from the input through Q K and V, QK transpose, softmax, multiplication by V, output projection and residual addition" width="760">
+          <figcaption>
+            <span class="fig-label">Figure 2.</span> The attention activation
+            count. The lower path is the residual connection from your sketch.
+          </figcaption>
+        </figure>
+
+        \begin{align}
+        n_{\text{act}}[\text{Self-Attention}]
+        = {} & 5BTd_{\text{emb}} + 2Bn_{\text{head}}T^2.
+        \label{eq:attention_activations}
+        \end{align}
+
+        <p>
+          The \(T^2\) term is the important one. Doubling the sequence length
+          doubles most activations, but it quadruples the conventional attention
+          matrices.
+        </p>
+
+        <h3 class="subsection" id="feed-forward">Feed-Forward Layer</h3>
+        <p>
+          We assume a two-matrix feed-forward layer with expansion factor 4. The
+          upward projection produces \(4BTd_{\text{emb}}\) values. Its element-wise
+          activation function produces another tensor of the same size, and the
+          downward projection produces \(BTd_{\text{emb}}\) values. So,
+        </p>
+
+        <figure class="fig" id="fig-feed-forward-activations">
+          <img src="../assets/figures/fig-feed-forward-activations.svg" alt="Feed-forward activation flow through upward projection, activation function, downward projection and residual addition" width="760">
+          <figcaption>
+            <span class="fig-label">Figure 3.</span> The feed-forward activation
+            count. The expansion factor of 4 is what produces the two
+            \(4BTd_{\text{emb}}\) terms.
+          </figcaption>
+        </figure>
+
+        \begin{align}
+        n_{\text{act}}[\text{Feed-Forward}]
+        = {} & 4BTd_{\text{emb}} + 4BTd_{\text{emb}} + BTd_{\text{emb}} \nonumber \\
+        = {} & 9BTd_{\text{emb}}.
+        \label{eq:ff_activations}
+        \end{align}
+
+        <p>
+          Combining \(\eqref{eq:layernorm_activations}\),
+          \(\eqref{eq:attention_activations}\), and
+          \(\eqref{eq:ff_activations}\), one transformer layer contributes
+        </p>
+
+        \begin{align}
+        n_{\text{act}}[\text{Transformer Layer}]
+        = {} & \underbrace{2BTd_{\text{emb}}}_{\text{LayerNorm}}
+        + \underbrace{5BTd_{\text{emb}} + 2Bn_{\text{head}}T^2}_{\text{Self-Attention}}
+        + \underbrace{9BTd_{\text{emb}}}_{\text{Feed-Forward}} \nonumber \\
+        = {} & 16BTd_{\text{emb}} + 2Bn_{\text{head}}T^2.
+        \label{eq:layer_activations}
+        \end{align}
+
+        <p>
+          This is where the linear coefficient becomes 16: two terms from
+          LayerNorm, five from self-attention, and nine from the feed-forward
+          layer.
+        </p>
+
+        <h2 class="section" id="backward">Backward-Pass Values</h2>
+        <p>
+          The backward pass calculates one gradient for every weight. Adam also
+          maintains a first-moment and second-moment estimate for every weight.
+          If these values are stored in FP32, they require
+        </p>
+
+        \begin{align}
+        M_{\text{backward}}
+        = {} & \underbrace{4N_{\text{param}}}_{\text{gradients}}
+        + \underbrace{4N_{\text{param}}}_{\text{first moment}}
+        + \underbrace{4N_{\text{param}}}_{\text{second moment}} \nonumber \\
+        = {} & 12N_{\text{param}} \text{ bytes}.
+        \label{eq:backward_values}
+        \end{align}
+
+        <p>
+          Adding the FP32 weights from \(\eqref{eq:weights}\) gives
+          \(16N_{\text{param}}\) bytes of persistent training state. A common
+          mixed-precision arrangement arrives at the same total in a different
+          way: 2 bytes for the low-precision working weight, 2 bytes for its
+          gradient, 4 bytes for an FP32 master weight, and 8 bytes for the two
+          FP32 Adam moments.
+        </p>
+
+        <div class="callout">
+          <p>
+            A 7-billion-parameter model needs about 112 GB of weights, gradients,
+            and Adam state before counting the forward-pass activations.
+          </p>
+        </div>
+
+        <h2 class="section" id="total">Putting Everything Together</h2>
+        <p>
+          We count the input embedding once, the expression in
+          \(\eqref{eq:layer_activations}\) \(L\) times, and the final vocabulary
+          logits once. The logits have shape
+          \(B \times T \times d_{\text{vocab}}\). Our working estimate for saved
+          activation memory is therefore
+        </p>
+
+        \begin{align}
+        M_{\text{act}}
+        = s \left[
+        BTd_{\text{emb}}
+        + L\left(16BTd_{\text{emb}} + 2Bn_{\text{head}}T^2\right)
+        + BTd_{\text{vocab}}
+        \right].
+        \label{eq:activation_memory}
+        \end{align}
+
+        <p>
+          Finally, adding the loaded weights in \(\eqref{eq:weights}\), the
+          backward-pass values in \(\eqref{eq:backward_values}\), and the
+          forward-pass activations in \(\eqref{eq:activation_memory}\) gives
+        </p>
+
+        \begin{align}
+        M_{\text{train}}
+        \approx {} & \underbrace{4N_{\text{param}}}_{\text{weights}}
+        + \underbrace{12N_{\text{param}}}_{\text{backward-pass values}} \nonumber \\
+        & {} + s \left[
+        BTd_{\text{emb}}
+        + L\left(16BTd_{\text{emb}} + 2Bn_{\text{head}}T^2\right)
+        + BTd_{\text{vocab}}
+        \right] \nonumber \\
+        = {} & 16N_{\text{param}}
+        + s \left[
+        BTd_{\text{emb}}
+        + L\left(16BTd_{\text{emb}} + 2Bn_{\text{head}}T^2\right)
+        + BTd_{\text{vocab}}
+        \right].
+        \label{eq:training_memory}
+        \end{align}
+
+        <p>
+          Equation \(\eqref{eq:training_memory}\) is in bytes.
+        </p>
+
+        <h2 class="section" id="example">Worked Example and Model Sizes</h2>
+        <p>Consider the following approximate setup:</p>
+
+        <ul>
+          <li>\(N_{\text{param}} = 7 \times 10^9\),</li>
+          <li>\(L=33\), \(d_{\text{emb}}=4096\), and \(n_{\text{head}}=32\),</li>
+          <li>\(d_{\text{vocab}}=43{,}520\),</li>
+          <li>\(B=1\), \(T=2048\), and</li>
+          <li>BF16 activations, so \(s=2\).</li>
+        </ul>
+
+        <p>
+          Using Equation \(\eqref{eq:training_memory}\), the weights and
+          backward-pass values occupy 112 GB. The saved activations occupy about
+          26.8 GB. The combined estimate is therefore about 138.8 GB.
+        </p>
+
+        <p>
+          If we change only the batch size from \(B=1\) to \(B=8\), the activation
+          estimate grows eightfold to about 214 GB. The parameter-dependent
+          terms do not change. This is why reducing the micro-batch size can
+          rescue a run that is running out of memory even though the model itself
+          has not changed.
+        </p>
+
+        <p>
+          There is another useful consequence. Two batches can contain the same
+          number of tokens, \(BT\), without using the same amount of memory. The
+          settings \(B=8,T=2048\) and \(B=16,T=1024\) have the same \(BT\), so
+          their linear activation terms match. However, the first setting has
+          twice the value of \(BT^2\), and therefore twice the conventional
+          attention-matrix memory.
+        </p>
+
+        <h3>Comparing Model Sizes</h3>
+        <p>
+          Before calculating memory, we should check that each representative
+          architecture actually has approximately the claimed number of
+          parameters. The parameter calculation is derived in
+          <a href="estimating-layers.html">Estimating Layers in Transformers</a>.
+          Under the same standard transformer assumptions,
+        </p>
+
+        \[
+        N_{\text{shape}}
+        \approx
+        2d_{\text{vocab}}d_{\text{emb}}
+        + 12Ld_{\text{emb}}^2.
+        \]
+
+        <p>
+          The first term counts the input and output embeddings. The second
+          counts \(L\) transformer blocks. The head count does not appear because
+          it cancels under standard multi-head attention; every shape below uses
+          an integer head dimension
+          \(d_{\text{head}}=d_{\text{emb}}/n_{\text{head}}\).
+        </p>
+
+        <div class="data-table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Nominal size</th>
+                <th>Representative shape<br>\((L,d_{\text{emb}},n_{\text{head}},d_{\text{vocab}})\)</th>
+                <th>\(N_{\text{shape}}\)</th>
+                <th>Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1 M</td>
+                <td>\((4,128,4,832)\)</td>
+                <td>0.999 M</td>
+                <td>&minus;0.1%</td>
+              </tr>
+              <tr>
+                <td>10 M</td>
+                <td>\((8,288,6,3{,}584)\)</td>
+                <td>10.027 M</td>
+                <td>+0.3%</td>
+              </tr>
+              <tr>
+                <td>40 M</td>
+                <td>\((10,512,8,8{,}448)\)</td>
+                <td>40.108 M</td>
+                <td>+0.3%</td>
+              </tr>
+              <tr>
+                <td>100 M</td>
+                <td>\((12,768,12,9{,}728)\)</td>
+                <td>99.877 M</td>
+                <td>&minus;0.1%</td>
+              </tr>
+              <tr>
+                <td>1 B</td>
+                <td>\((23,1{,}792,14,31{,}744)\)</td>
+                <td>1.000 B</td>
+                <td>&lt;0.1%</td>
+              </tr>
+              <tr>
+                <td>7 B</td>
+                <td>\((33,4{,}096,32,43{,}520)\)</td>
+                <td>7.000 B</td>
+                <td>&lt;0.1%</td>
+              </tr>
+              <tr>
+                <td>70 B</td>
+                <td>\((86,8{,}192,64,45{,}568)\)</td>
+                <td>70.003 B</td>
+                <td>&lt;0.1%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          These are synthetic standard-transformer shapes chosen to match the
+          nominal sizes. They are not the configurations of particular named
+          models; Section 6 performs that separate check using published models.
+        </p>
+
+        <p>
+          Having checked the parameter counts, we can calculate each part of the
+          memory separately. To answer the M2 question, every row below uses a
+          micro-batch size of \(B=1\), ordinary FP32 Adam state, and FP32
+          activations (\(s=4\)). This is the conservative default because
+          <a href="https://ml-explore.github.io/mlx/build/html/python/data_types.html">MLX uses FP32 as its default floating-point type</a>.
+          BF16 only applies if the model and its computation are explicitly
+          converted to BF16.
+        </p>
+
+        \[
+        \begin{aligned}
+        M_{\text{weights}}
+        &= 4N_{\text{param}}, \\
+        M_{\text{act}}(T)
+        &= 4\left[
+        BTd_{\text{emb}}
+        + L\left(16BTd_{\text{emb}}+2Bn_{\text{head}}T^2\right)
+        + BTd_{\text{vocab}}
+        \right], \\
+        M_{\text{backward}}
+        &= 12N_{\text{param}}, \\
+        M_{\text{total}}
+        &= M_{\text{weights}}+M_{\text{act}}(T)+M_{\text{backward}}.
+        \end{aligned}
+        \]
+
+        <p>
+          All values in the table are decimal GB, where
+          \(1\text{ GB}=10^9\) bytes. A GiB is a binary unit:
+          \(1\text{ GiB}=2^{30}\) bytes, or about \(1.074\) GB. To avoid mixing
+          the two units, we use GB throughout the calculations below.
+        </p>
+
+        <div class="data-table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Model size</th>
+                <th>Context \(T\)</th>
+                <th>Weights<br>\(4N_{\text{param}}\)</th>
+                <th>Forward activations<br>\(M_{\text{act}}(T)\)</th>
+                <th>Backward values<br>\(12N_{\text{param}}\)</th>
+                <th>Total</th>
+                <th>Practical conclusion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td rowspan="2">1 M</td>
+                <td>512</td><td rowspan="2">0.004</td><td>0.052</td><td rowspan="2">0.012</td><td>0.068</td>
+                <td rowspan="2">4 GB M2: easy</td>
+              </tr>
+              <tr><td>2,048</td><td>0.612</td><td>0.628</td></tr>
+
+              <tr class="group-start">
+                <td rowspan="2">10 M</td>
+                <td>512</td><td rowspan="2">0.040</td><td>0.184</td><td rowspan="2">0.120</td><td>0.344</td>
+                <td rowspan="2">Reasonable 4 GB memory target</td>
+              </tr>
+              <tr><td>2,048</td><td>1.944</td><td>2.104</td></tr>
+
+              <tr class="group-start">
+                <td rowspan="2">40 M</td>
+                <td>512</td><td rowspan="2">0.160</td><td>0.354</td><td rowspan="2">0.480</td><td>0.994</td>
+                <td>Below 4 GB in the equation only</td>
+              </tr>
+              <tr><td>2,048</td><td>3.429</td><td>4.069</td><td>Already above 4 GB</td></tr>
+
+              <tr class="group-start">
+                <td rowspan="2">100 M</td>
+                <td>512</td><td rowspan="2">0.400</td><td>0.625</td><td rowspan="2">1.200</td><td>2.225</td>
+                <td>Too little headroom for confidence</td>
+              </tr>
+              <tr><td>2,048</td><td>6.126</td><td>7.726</td><td>Above 4 GB</td></tr>
+
+              <tr class="group-start">
+                <td rowspan="2">1 B</td>
+                <td>512</td><td rowspan="2">4.000</td><td>2.095</td><td rowspan="2">12.000</td><td>18.095</td>
+                <td>24 GB class</td>
+              </tr>
+              <tr><td>2,048</td><td>16.482</td><td>32.482</td><td>48 GB class</td></tr>
+
+              <tr class="group-start">
+                <td rowspan="2">7 B</td>
+                <td>512</td><td rowspan="2">28.000</td><td>6.741</td><td rowspan="2">84.000</td><td>118.741</td>
+                <td rowspan="2">At least 192 GB aggregate, sharded</td>
+              </tr>
+              <tr><td>2,048</td><td>53.540</td><td>165.540</td></tr>
+
+              <tr class="group-start">
+                <td rowspan="2">70 B</td>
+                <td>512</td><td rowspan="2">280.000</td><td>34.738</td><td rowspan="2">840.000</td><td>1,154.738</td>
+                <td rowspan="2">At least 1.5 TB aggregate, distributed</td>
+              </tr>
+              <tr><td>2,048</td><td>277.466</td><td>1,397.466</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          We can check the two rows nearest the 4 GB boundary directly. For 40 M
+          parameters at \(T=2048\),
+          \(0.160 + 3.429 + 0.480 = 4.069\) GB. For 100 M parameters at the same
+          context length, \(0.400 + 6.126 + 1.200 = 7.726\) GB. In each sum, the
+          terms are weights, forward activations, and backward-pass values in
+          that order.
+        </p>
+
+        <p>
+          This explains why a 40 M model can fail on an M2 with only 4 GB
+          available for training. At \(T=2048\), the equation itself is already
+          slightly above 4 GB. At \(T=512\), the equation is below 1 GB, but that
+          still does not guarantee that the training program will fit.
+        </p>
+
+        <p>
+          The equation counts the main stored tensors. The training framework
+          also needs working space while operations are running, and MLX may keep
+          recently freed memory in a cache rather than immediately returning it
+          to the system. The
+          <a href="https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.get_cache_memory.html">MLX memory documentation</a>
+          calls this cache memory &ldquo;not currently used&rdquo; memory that has
+          not been returned to the system allocator. A micro-batch larger than
+          \(B=1\) multiplies the activation column again.
+        </p>
+
+        <div class="callout">
+          <p>
+            With a hard 4 GB memory budget, about 10 M parameters is a
+            conservative memory target. This means the tensors should fit; it
+            does not mean that training will finish quickly.
+          </p>
+        </div>
+
+        <p>
+          Fitting in memory is necessary, but it is not sufficient for practical
+          training. Training time also depends on the number of training tokens,
+          the arithmetic required for each token, the M2's sustained compute and
+          memory bandwidth, and how efficiently MLX executes the model. A 10 M
+          parameter model can fit within the memory budget and still take too
+          long for a particular experiment. The distinction between memory
+          capacity and computation is developed further in
+          <a href="estimating-llm-compute.html">Estimating the Compute and Memory Needed for Language Models</a>.
+        </p>
+
+        <p>
+          A 40 M model remains a borderline memory experiment. It needs a short
+          context, micro-batch size 1, careful dtype control, and an efficient
+          compiled training step before training speed is considered.
+        </p>
+
+        <p>
+          MLX supports converting module parameters with
+          <a href="https://ml-explore.github.io/mlx/build/html/python/nn/_autosummary/mlx.nn.Module.set_dtype.html"><code>set_dtype</code></a>,
+          and BF16 can reduce memory. However, this is a different training
+          configuration: the dtypes of the weights, gradients, Adam state, and
+          activations should all be checked rather than assumed.
+        </p>
+
+        <p>
+          The final test is to measure a real training step. MLX provides
+          <a href="https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.get_peak_memory.html"><code>get_peak_memory</code></a>
+          for this purpose. The measurement should be taken after the Adam state
+          has been created and after the compiled training step has warmed up.
+        </p>
+
+        <p>
+          The 70 B row should be read as a scale check, not a proposed single
+          machine. Its model state alone is about 1.12 TB under ordinary Adam.
+          Training it requires the state and activations to be distributed across
+          many accelerators, or a different optimiser and precision setup.
+        </p>
+
+        <h2 class="section" id="real-world">Does This Hold in the Real World?</h2>
+        <p>
+          We can apply Equation \(\eqref{eq:training_memory}\) to the published
+          configurations of several real models. For a fair comparison, every
+          row below uses \(B=1\), \(T=2048\), and BF16 activations, so \(s=2\).
+          We use the same conventional attention calculation for every model,
+          even when its published maximum context is much longer.
+        </p>
+
+        <div class="data-table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>\(N_{\text{param}}\)</th>
+                <th>\(L\)</th>
+                <th>\(d_{\text{emb}}\)</th>
+                <th>\(n_{\text{head}}\)</th>
+                <th>\(d_{\text{vocab}}\)</th>
+                <th>Published context</th>
+                <th>Model state</th>
+                <th>Activations</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><a href="https://huggingface.co/Qwen/Qwen2.5-0.5B/blob/main/config.json">Qwen2.5-0.5B</a></td>
+                <td>0.49 B</td>
+                <td>24</td>
+                <td>896</td>
+                <td>14</td>
+                <td>151,936</td>
+                <td>32 K</td>
+                <td>7.84 GB</td>
+                <td>7.67 GB</td>
+                <td>15.51 GB</td>
+              </tr>
+              <tr>
+                <td><a href="https://huggingface.co/meta-llama/Llama-3.2-1B">Llama 3.2 1B</a></td>
+                <td>1.23 B</td>
+                <td>16</td>
+                <td>2,048</td>
+                <td>32</td>
+                <td>128,256</td>
+                <td>128 K</td>
+                <td>19.68 GB</td>
+                <td>11.27 GB</td>
+                <td>30.95 GB</td>
+              </tr>
+              <tr>
+                <td><a href="https://huggingface.co/Qwen/Qwen2.5-1.5B/blob/main/config.json">Qwen2.5-1.5B</a></td>
+                <td>1.54 B</td>
+                <td>28</td>
+                <td>1,536</td>
+                <td>12</td>
+                <td>151,936</td>
+                <td>32 K</td>
+                <td>24.64 GB</td>
+                <td>9.08 GB</td>
+                <td>33.72 GB</td>
+              </tr>
+              <tr>
+                <td><a href="https://huggingface.co/mistralai/Mistral-7B-v0.3/blob/main/config.json">Mistral 7B</a></td>
+                <td>7.3 B</td>
+                <td>32</td>
+                <td>4,096</td>
+                <td>32</td>
+                <td>32,768</td>
+                <td>32 K</td>
+                <td>116.80 GB</td>
+                <td>25.92 GB</td>
+                <td>142.72 GB</td>
+              </tr>
+              <tr>
+                <td><a href="https://huggingface.co/meta-llama/Meta-Llama-3-8B">Llama 3 8B</a></td>
+                <td>8 B</td>
+                <td>32</td>
+                <td>4,096</td>
+                <td>32</td>
+                <td>128,256</td>
+                <td>8 K</td>
+                <td>128.00 GB</td>
+                <td>26.31 GB</td>
+                <td>154.31 GB</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          The parameter term immediately gives the right scale. Even
+          Qwen2.5-0.5B requires 7.84 GB for weights, gradients, and Adam state
+          under our assumptions. Full-parameter Adam training of any model in
+          this table therefore cannot fit within 4 GB without changing the
+          optimiser, precision, or location of the training state.
+        </p>
+
+        <p>
+          There is also a measured result with which we can compare our scale.
+          Qwen reports full-parameter training of its earlier 7 B model using two
+          80 GB A100 GPUs. Its
+          <a href="https://github.com/QwenLM/Qwen#profiling-of-memory-and-speed">published profiling table</a>
+          reports 139.2 GB at 256 tokens, 148.0 GB at 512 tokens, and 162.0 GB
+          at 1024 tokens. The architecture and implementation are not identical
+          to our 7 B example, but these measurements are in the same
+          neighbourhood as our estimate.
+        </p>
+
+        <p>
+          The activation column is less exact. These real models use RMSNorm,
+          gated feed-forward layers, and grouped-query attention, whereas our
+          calculation uses one simplified transformer block. Modern training
+          also uses techniques such as
+          <a href="https://github.com/Dao-AILab/flash-attention">FlashAttention</a>
+          and
+          <a href="https://docs.pytorch.org/docs/stable/checkpoint.html">activation checkpointing</a>
+          to retain fewer activations.
+        </p>
+
+        <p>
+          Distributed training changes the per-device number too.
+          <a href="https://docs.pytorch.org/docs/stable/distributed.fsdp.fully_shard.html">Fully sharded training</a>
+          divides parameters, gradients, and optimiser state across devices.
+          LoRA and QLoRA reduce memory in a different way by freezing the
+          original model and training only a small adapter; they are therefore
+          not full-parameter training runs described by Equation
+          \(\eqref{eq:training_memory}\).
+        </p>
+
+        <div class="callout">
+          <p>
+            Equation \(\eqref{eq:training_memory}\) gets the scale right,
+            especially the cost of full-parameter Adam state. It is not an exact
+            prediction once activation-saving or sharding techniques are used.
+          </p>
+        </div>
+
+        <h2 class="section" id="changes">What Changes the Estimate?</h2>
+        <p>
+          The expression above is intentionally simple. Several common techniques
+          change it substantially:
+        </p>
+
+        <ol>
+          <li>
+            <strong>Activation checkpointing</strong> saves only selected layer
+            outputs and recomputes the missing activations during the backward
+            pass. It trades additional computation for lower memory.
+          </li>
+          <li>
+            <strong>Memory-efficient attention</strong> avoids materialising the
+            full \(T \times T\) score and probability tensors in accelerator
+            memory. This removes the most painful part of the quadratic memory
+            term, even though the arithmetic of standard dense attention remains
+            quadratic in \(T\).
+          </li>
+          <li>
+            <strong>A fused cross-entropy loss</strong> can avoid retaining the
+            full \(B \times T \times d_{\text{vocab}}\) logit tensor.
+          </li>
+          <li>
+            <strong>Sharding</strong> distributes parameters, gradients, optimiser
+            state, or activations across devices. It reduces memory per device;
+            ordinary data parallelism instead keeps a complete model replica on
+            every device.
+          </li>
+          <li>
+            <strong>Different architectures</strong> change the constants. RMSNorm
+            retains different statistics from LayerNorm; gated feed-forward
+            layers, mixture-of-experts layers, dropout, and different attention
+            implementations do not save exactly the set of tensors counted above.
+          </li>
+        </ol>
+
+        <p>
+          Despite these qualifications, the decomposition is useful. Parameter
+          memory grows with \(N_{\text{param}}\). Most activation memory grows
+          with \(LBTd_{\text{emb}}\). Conventional attention adds a term growing
+          with \(LBn_{\text{head}}T^2\). Once these three pieces are visible, the
+          effect of changing the model, batch size, or context length becomes much
+          easier to reason about.
+        </p>
+      </article>
+    </main>
+  </body>
+</html>
