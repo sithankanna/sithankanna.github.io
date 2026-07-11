@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A comparison of supervised learning and REINFORCE for language-model token generation under a binary reward.">
+    <title>Is RL Secretly Supervised Learning?</title>
+    <link rel="stylesheet" href="../css/site.css">
+    <script src="../js/mathjax-config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script defer src="../js/toc.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell">
+        <a class="site-name" href="../index.html">Sithan Kanna</a>
+      </div>
+    </header>
+
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Contents">
+        <nav>
+          <h2>Contents</h2>
+          <a href="#problem-formulation">1. Problem Formulation</a>
+          <a href="#supervised-learning">2. Supervised Learning</a>
+          <a class="toc-sub" href="#gradient-derivation-sl">2.1 Gradient Derivation</a>
+          <a href="#reinforcement-learning">3. Reinforcement Learning (REINFORCE)</a>
+          <a class="toc-sub" href="#gradient-derivation-rl">3.1 Gradient Derivation</a>
+          <a href="#comparison-conclusion">4. Comparison and Conclusion</a>
+        </nav>
+      </aside>
+
+      <article class="post-body">
+        <h1>Is RL Secretly Supervised Learning?</h1>
+        <p class="post-meta">28 December 2025</p>
+
+        <p>
+          <strong>Goal.</strong> We aim to demonstrate that Reinforcement Learning
+          (specifically the REINFORCE algorithm) shares a striking structural
+          identity with Supervised Learning utilizing Cross-Entropy loss. The
+          primary distinction lies in the source of the supervision: Supervised
+          Learning uses fixed ground truth tokens, whereas RL uses a scalar reward
+          signal provided after a sequence is generated.
+          <sup><a class="footnote-ref" href="#fn-1" id="fnref-1">1</a></sup>
+        </p>
+
+        <p>
+          We specifically show that if we simplify the RL setting to a binary
+          reward scheme—where \(R(\tau)=1\) for a sequence that satisfies an
+          objective and \(R(\tau)=0\) otherwise—the REINFORCE algorithm becomes
+          mathematically identical to applying Supervised Learning. The only
+          difference is that in the RL case, the model treats its own generated
+          tokens (from successful trajectories) as the ground truth labels.
+        </p>
+
+        <h2 class="section" id="problem-formulation">Problem Formulation</h2>
+
+        <p>
+          Consider a one-layer Neural Network generating tokens at time-step \(t\).
+          Let the vocabulary size be \(d_{\textsf{vocab}}\). We denote the state
+          vector as \(\bm{s}_t \in \mathbb{R}^d\), which is a concatenation of the
+          prompt and previously generated tokens:
+        </p>
+        \[
+        \bm{s}_t = \begin{bmatrix}
+            \hat{a}_{t-1}, \dots, \hat{a}_1, x_{n_{\textsf{prompt}}}, \dots, x_1
+        \end{bmatrix}^\T.
+        \]
+
+        <p>
+          The network outputs a probability distribution \(\pi_W\) over the
+          vocabulary via a weight matrix \(\bm{W} \in
+          \mathbb{R}^{d_{\textsf{vocab}} \times d}\). You can visualize \(\bm{W}\)
+          as a stack of row vectors \(\bm{w}_j^\T\) corresponding to each
+          vocabulary item \(j\):
+        </p>
+        \[
+        \bm{W}
+        =
+        \begin{bmatrix}
+        \cdots & \bm{w}_1^{\T} & \cdots \\
+        & \vdots         &  \\
+        \cdots & \bm{w}_{d_{\text{vocab}}}^{\T} & \cdots
+        \end{bmatrix}
+        \]
+
+        <p>
+          The predicted probability for a specific token class \(\ell\) is the
+          softmax of the projection:
+        </p>
+        \[
+            \hat{\bm{p}}_t[\ell] =
+            \frac{\exp(\bm{w}_{\ell}^\T \bm{s}_t)}
+            {\sum_{k=1}^{d_{\textsf{vocab}}} \exp ( \bm{w}_{k}^\T\bm{s}_t )}.
+        \]
+
+        <p>
+          For convenience, we define the <strong>one-hot encoding vector</strong>
+          \(\bm{e}_{k} \in \mathbb{R}^{d_{\textsf{vocab}}}\) for a class \(k\),
+          where the \(j\)-th entry is \(1\) if \(j=k\) and \(0\) otherwise.
+        </p>
+
+        <h2 class="section" id="supervised-learning">Supervised Learning</h2>
+
+        <p>
+          In the supervised setting, we have the true labels
+          \(\tau^* = (a_1, \dots, a_T)\). We minimize the Cross-Entropy loss over
+          the sequence.
+        </p>
+
+        <p>
+          The standard Cross-Entropy for a single time step is the sum over all
+          possible classes \(k\):
+        </p>
+        \[
+        \mathcal{L}_t = - \sum_{k=1}^{d_{\textsf{vocab}}}
+        \mathbb{I}[a_t = k] \log \hat{p}_t[k]
+        \]
+        <p>
+          where \(\mathbb{I}[\cdot]\) is the indicator function. Since the true
+          label \(a_t\) is fixed, only the term where \(k=a_t\) is non-zero. The
+          total loss simplifies to:
+        </p>
+        \[
+        \mathcal{L}_{\mathrm{CE}}(\bm{W})
+        = \sum_{t=1}^{T} \mathcal{L}_t
+        = -\sum_{t=1}^{T} \log \hat{p}_t[a_t].
+        \]
+
+        <h3 class="subsection" id="gradient-derivation-sl">Gradient Derivation</h3>
+
+        <p>
+          To find the update rule, we first look at the gradient with respect to a
+          single weight row \(\bm{w}_j\) (the weights responsible for class \(j\)).
+        </p>
+        \[
+        \begin{aligned}
+        \nabla_{\bm{w}_j}\mathcal{L}_{\mathrm{CE}}(\bm{W})
+        &= \sum_{t=1}^{T} \frac{\partial}{\partial \bm{w}_j}
+        \left( -\log \frac{\exp(\bm{w}_{a_t}^\T \bm{s}_t)}{Z} \right) \\
+        &= \sum_{t=1}^{T}\big(\hat{p}_t[j]-\mathbb{I}[a_t=j]\big)\bm{s}_t.
+        \end{aligned}
+        \]
+        <p>We can stack these derivatives back into the full matrix form.</p>
+        \[
+        \nabla_{\bm{W}}\mathcal{L}_{\mathrm{CE}}(\bm{W})
+        = \sum_{t=1}^{T}\big(\hat{\bm{p}}_t-\bm{e}_{a_t}\big)\bm{s}_t^\T.
+        \]
+        <p>
+          Using Gradient Descent (\( \bm{W} \leftarrow \bm{W} - \mu \nabla
+          \mathcal{L} \)), the final update is:
+        </p>
+        \[
+        \begin{aligned}
+        \bm{W} \leftarrow \bm{W} + \mu \sum_{t=1}^{T}
+        \underbrace{\big(\bm{e}_{a_t}-\hat{\bm{p}}_t\big)}_{\text{Error signal}}\bm{s}_t^\T.
+        \end{aligned}
+        \tag{1}\label{eq:sl_update}
+        \]
+
+        <hr>
+
+        <h2 class="section" id="reinforcement-learning">Reinforcement Learning (REINFORCE)</h2>
+
+        <p>
+          Consider a simple case where we generate a sequence \(\tau\) of length
+          \(T\) and receive a <strong>single scalar reward</strong> \(R(\tau)\) at
+          the end. Crucially, there are <strong>no ground truth labels</strong>
+          \(a_t\). We sample actions \(\hat{a}_t\) from our policy:
+        </p>
+        \[
+        \hat{a}_t \sim \pi_W(\cdot\mid \bm{s}_t)
+        \]
+
+        <p>
+          We wish to maximize the expected reward:
+        </p>
+        \[
+        J(\bm{W}) = \mathbb{E}_{\tau \sim P_W}\big[R(\tau)\big], \qquad
+        \text{where } P_W(\tau)=\prod_{t=1}^{T}\pi_W(\hat{a}_t\mid \bm{s}_t).
+        \]
+
+        <h3 class="subsection" id="gradient-derivation-rl">Gradient Derivation</h3>
+
+        <p>
+          We define the objective as the expected return under the trajectory
+          distribution induced by the policy:
+        </p>
+        \[
+        J(\bm{W})
+        = \mathbb{E}_{\tau \sim P_{\bm{W}}}\big[ R(\tau) \big].
+        \]
+
+        <p>Using the log-derivative trick, the gradient can be written as:</p>
+        \[
+        \nabla_{\bm{W}} J(\bm{W})
+        = \mathbb{E}_{\tau \sim P_{\bm{W}}}\!\left[
+        R(\tau)\,\nabla_{\bm{W}} \log P_{\bm{W}}(\tau) \right].
+        \]
+
+        <p>
+          Since a trajectory factorizes as \(P_{\bm{W}}(\tau)=\prod_{t=1}^{T}
+          \pi_{\bm{W}}(\hat{a}_t\mid \bm{s}_t)\), we have:
+        </p>
+        \[
+        \nabla_{\bm{W}} J(\bm{W})
+        = \mathbb{E}_{\tau \sim P_{\bm{W}}}\!\left[
+        R(\tau)\sum_{t=1}^{T}\nabla_{\bm{W}}
+        \log \pi_{\bm{W}}(\hat{a}_t\mid \bm{s}_t) \right].
+        \]
+
+        <p><strong>Single-rollout (Monte Carlo) estimate.</strong></p>
+        <p>
+          If we sample a single rollout \(\tau\) from the current policy, we
+          approximate the expectation with one sequence of length \(T\):
+        </p>
+        \[
+        \widehat{\nabla}_{\bm{W}} J(\bm{W})
+        = R(\tau)\sum_{t=1}^{T}\nabla_{\bm{W}}
+        \log \pi_{\bm{W}}(\hat{a}_t\mid \bm{s}_t).
+        \]
+
+        <p>
+          Now consider the gradient of the log-probability w.r.t. a single row
+          \(\bm{w}^\T_j\) of \(\bm{W}\). Using
+          \(\hat{\bm{p}}_t=\mathrm{softmax}(\bm{W}\bm{s}_t)\),
+        </p>
+        \[
+        \begin{aligned}
+        \nabla_{\bm{w}_j}\log \pi_{\bm{W}}(\hat{a}_t\mid \bm{s}_t)
+        &= \nabla_{\bm{w}_j}\log \hat{p}_t[\hat{a}_t] \\
+        &= \big(\mathbb{I}[\hat{a}_t=j]-\hat{p}_t[j]\big)\bm{s}_t.
+        \end{aligned}
+        \]
+
+        <p>Collecting these into the matrix form \(\nabla_{\bm{W}}\), we get:</p>
+        \[
+            \nabla_{\bm{W}} \log \pi_W(\hat{a}_t\mid \bm{s}_t)
+            = (\bm{e}_{\hat{a}_t} - \hat{\bm{p}}_t)\bm{s}_t^\T.
+        \]
+        <p>
+          Substituting this back into the approximate gradient for \(J(\bm{W})\)
+          and using Gradient Ascent (\( \bm{W} \leftarrow \bm{W} + \mu
+          \widehat{\nabla J} \)), the update rule is:
+        </p>
+        \[
+        \begin{aligned}
+        \bm{W} \leftarrow \bm{W} + \mu R(\tau) \sum_{t=1}^{T}
+        \underbrace{\big(\bm{e}_{\hat{a}_t}-\hat{\bm{p}}_t\big)}_{\text{Error signal}}\bm{s}_t^\T.
+        \end{aligned}
+        \tag{2}\label{eq:rl_update}
+        \]
+
+        <h2 class="section" id="comparison-conclusion">Comparison and Conclusion</h2>
+
+        <p>
+          Comparing Equation (\ref{eq:sl_update}) and Equation
+          (\ref{eq:rl_update}), we can state the following
+        </p>
+
+        <ol>
+          <li>
+            <strong>Structural Identity:</strong> Both algorithms update weights
+            using the term \((\bm{e}_{\text{target}} - \hat{\bm{p}}_t)\bm{s}_t^\T\).
+            <ul>
+            <li>In Supervised Learning, the target is the ground truth label \(a_t\).</li>
+              <li>In REINFORCE, the target is the token \(\hat{a}_t\) that the model just sampled.</li>
+            </ul>
+          </li>
+          <li>
+            <strong>The Role of Reward:</strong> If we assume a binary reward
+            function where \(R(\tau) \in \{0, 1\}\):
+            <ul>
+              <li>
+                <strong>Case \(R(\tau) = 1\) (Success):</strong> The RL update becomes:
+                \[
+                \bm{W} \leftarrow \bm{W} + \mu \sum
+                (\bm{e}_{\hat{a}_t}-\hat{\bm{p}}_t)\bm{s}_t^\T
+                \]
+                This is exactly the Supervised Learning update, but treating the
+                sampled sequence \(\hat{a}_t\) as the ground truth. The model
+                effectively says, "Because this led to a positive reward, I am
+                going to assume every single token generated is equivalent to the
+                ground truth."
+              </li>
+              <li>
+                <strong>Case \(R(\tau) = 0\) (Failure):</strong> The gradient update is multiplied by 0. The model makes no update.
+              </li>
+            </ul>
+          </li>
+        </ol>
+
+        <p><strong>Final Result.</strong> Reinforcement Learning with a binary reward is equivalent to Supervised Learning on the tokens you generate yourself, filtered to include only those that achieved the objective.</p>
+
+        <section class="footnotes" aria-label="Footnotes">
+          <ol>
+            <li id="fn-1">Sithan Kanna, 28 December 2025. <a class="footnote-backref" href="#fnref-1">↩</a></li>
+          </ol>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>
