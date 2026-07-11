@@ -462,9 +462,13 @@
 
         <p>
           Having checked the parameter counts, we can calculate each part of the
-          memory separately. To answer the M2 question, every row below uses a
-          micro-batch size of \(B=1\), ordinary FP32 Adam state, and FP32
-          activations (\(s=4\)). This is the conservative default because
+          memory separately. The machine we care about is an M2 with 8 GB of
+          unified memory. The operating system and other programs claim a few
+          GB of that, so we take roughly 4 GB as the hard training budget; the
+          full 8 GB is the optimistic ceiling when little else is running. Every
+          row below uses a micro-batch size of \(B=1\), ordinary FP32 Adam
+          state, and FP32 activations (\(s=4\)). This is the conservative
+          default because
           <a href="https://ml-explore.github.io/mlx/build/html/python/data_types.html">MLX uses FP32 as its default floating-point type</a>.
           BF16 only applies if the model and its computation are explicitly
           converted to BF16.
@@ -590,8 +594,10 @@
         <div class="callout">
           <p>
             With a hard 4 GB memory budget, about 10 M parameters is a
-            conservative memory target. This means the tensors should fit; it
-            does not mean that training will finish quickly.
+            conservative memory target. On the full 8 GB, the measured results
+            below show that 40 M trains at \(T=2048\) and 100 M trains at
+            \(T=512\). Fitting means the tensors fit; it does not mean that
+            training will finish quickly.
           </p>
         </div>
 
@@ -607,9 +613,11 @@
         </p>
 
         <p>
-          A 40 M model remains a borderline memory experiment. It needs a short
-          context, micro-batch size 1, careful dtype control, and an efficient
-          compiled training step before training speed is considered.
+          A 40 M model is borderline only under the 4 GB budget. The measured
+          run below peaks at 3.75 GB at \(T=2048\), so it trains on the full
+          8 GB machine without any of the usual rescue techniques. Under a hard
+          4 GB budget it needs a shorter context, micro-batch size 1, and
+          careful dtype control.
         </p>
 
         <p>
@@ -625,6 +633,74 @@
           <a href="https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.get_peak_memory.html"><code>get_peak_memory</code></a>
           for this purpose. The measurement should be taken after the Adam state
           has been created and after the compiled training step has warmed up.
+        </p>
+
+        <h3>Measuring on an 8 GB M2</h3>
+        <p>
+          We ran exactly this test on an 8 GB M2: the representative shapes from
+          the table above, implemented as plain MLX modules, trained with
+          ordinary Adam in FP32 at \(B=1\), with peak memory read from
+          <code>get_peak_memory</code> after a warm-up step.
+        </p>
+
+        <div class="data-table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Shape</th>
+                <th>Context \(T\)</th>
+                <th>Predicted total</th>
+                <th>Measured peak</th>
+                <th>Time per step</th>
+                <th>Tokens per second</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>10 M</td>
+                <td>2,048</td>
+                <td>2.10 GB</td>
+                <td>2.05 GB</td>
+                <td>354 ms</td>
+                <td>&approx;5,800</td>
+              </tr>
+              <tr>
+                <td>40 M</td>
+                <td>2,048</td>
+                <td>4.07 GB</td>
+                <td>3.75 GB</td>
+                <td>847 ms</td>
+                <td>&approx;2,400</td>
+              </tr>
+              <tr>
+                <td>100 M</td>
+                <td>512</td>
+                <td>2.23 GB</td>
+                <td>2.44 GB</td>
+                <td>359 ms</td>
+                <td>&approx;1,400</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          The estimate lands within about 10% of the measurement in each case:
+          two rows slightly below the prediction, one slightly above, the
+          difference being framework working space that the equation does not
+          count. The practical reading for an 8 GB M2 is that even the 40 M
+          model trains at the full 2,048-token context, and a 100 M model
+          trains at \(T=512\). The 10 M figure is the answer to the 4 GB
+          question, not the 8 GB one.
+        </p>
+
+        <p>
+          The throughput column carries its own lesson. At roughly 5,800 tokens
+          per second, a ten-minute run shows the 10 M model about 3.5 M
+          tokens; the 40 M model sees about 1.5 M. Memory is therefore not
+          what limits training on an M2 &mdash; the clock is. This is the
+          opposite of the large-cluster setting, where the accelerators have
+          memory to spare and the game is spending compute efficiently.
         </p>
 
         <p>
