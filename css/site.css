@@ -11,6 +11,9 @@
   --sidebar-heading: #f5f5f5;
   --code: #f0f2ef;
   --toc-active: #e3e6e0;
+  --note-yellow: #f7c948;
+  --note-yellow-soft: #fff4b8;
+  --note-yellow-text: #493900;
 }
 
 * {
@@ -220,6 +223,41 @@ code {
   font-style: italic;
 }
 
+.post-meta-after-badge {
+  margin: 0.55rem 0 1.5rem;
+}
+
+.note-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #d7a900;
+  border-radius: 999px;
+  background: var(--note-yellow);
+  color: var(--note-yellow-text);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.llm-disclosure {
+  margin: 0 0 2rem;
+  padding: 1rem 1.2rem;
+  border-left: 4px solid var(--note-yellow);
+  border-radius: 0 0.45rem 0.45rem 0;
+  background: var(--note-yellow-soft);
+  color: var(--note-yellow-text);
+}
+
+.llm-disclosure strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
 /* ---------- Figures ---------- */
 figure.fig {
   margin: 2rem 0;
@@ -310,6 +348,36 @@ figure.fig figcaption .fig-label {
 .home {
   max-width: 47rem;
   padding-block: clamp(2rem, 6vw, 5rem);
+}
+
+.home-section {
+  margin-top: 2.5rem;
+}
+
+.home-section h2 {
+  margin-top: 0;
+}
+
+.reading-notes-section {
+  margin-top: 2rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.reading-notes-section h2 {
+  margin-bottom: 0.35rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.reading-notes-section .posts li,
+.reading-notes-section .posts li:first-child {
+  padding-block: 0.8rem;
+  border-top: 0;
+}
+
+.reading-notes-section .posts a {
+  font-size: 1.05rem;
 }
 
 .posts {
