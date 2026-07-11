@@ -154,9 +154,9 @@
           <p>
             <strong>Short version:</strong> a 36M-class record sees about 3.9B
             tokens in ten minutes on eight H100s. The same amount of training is
-            roughly days to weeks on the measured M2 anchor and months under the
-            CPU-only assumptions below. It does not come close to consuming full
-            FineWeb.
+            a measured 9&ndash;19 days for a plain dense model on an M2 and
+            months under the CPU-only assumptions below. It does not come close
+            to consuming full FineWeb.
           </p>
         </div>
 
@@ -307,12 +307,16 @@
                 <td>1.41 PFLOP/s*</td><td>3.927 B</td><td>10 min</td>
               </tr>
               <tr>
-                <td class="name">M2 MLX, measured anchor</td>
+                <td class="name">M2 MLX, measured 0.36M anchor</td>
                 <td>0.50 TFLOP/s</td><td>1.39 M</td><td>19.7 days</td>
               </tr>
               <tr>
-                <td class="name">M2 MLX, 4&times; measured scenario</td>
-                <td>2.0 TFLOP/s</td><td>5.56 M</td><td>4.9 days</td>
+                <td class="name">M2 MLX, measured 41M dense, \(B=1\), \(T=2048\)</td>
+                <td>0.60 TFLOP/s</td><td>1.45 M</td><td>18.8 days</td>
+              </tr>
+              <tr>
+                <td class="name">M2 MLX, measured 41M dense, \(B=4\), \(T=512\)</td>
+                <td>1.19 TFLOP/s</td><td>2.95 M</td><td>9.2 days</td>
               </tr>
               <tr>
                 <td class="name">CPU-only assumption</td>
@@ -335,12 +339,24 @@
           it is not a benchmark of this machine.
         </p>
         <p>
-          The M2 extrapolation is also uncertain. The measured local model has
-          only 0.36M parameters. A larger model may execute its matrix
-          multiplications more efficiently, but it also needs smaller
-          microbatches, gradient accumulation, and replacements for CUDA-only
-          FlashAttention and Triton kernels. A short benchmark of the exact 36M
-          architecture is the only reliable way to narrow the range.
+          The 0.36M anchor could have extrapolated badly: a larger model may
+          execute its matrix multiplications more efficiently, but it also needs
+          smaller microbatches, gradient accumulation, and replacements for
+          CUDA-only FlashAttention and Triton kernels. The measured 41M rows
+          settle this at the right scale. While checking the memory estimate in
+          <a href="estimating-transformer-training-memory.html">Estimating Transformer Training Memory</a>,
+          we trained plain dense MLX transformers on an 8 GB M2 in FP32 with
+          ordinary Adam and an uncompiled training step. Effective \(6ND\)
+          throughput at \(B=1\) grew with model size&mdash;about 0.37 TFLOP/s at
+          10.6M parameters, 0.60 at 41.2M, and 0.86 at 100.4M&mdash;so larger
+          matrices do run more efficiently. Batching helped further: the 41M
+          model reached about 4,900 tokens per second at \(B=4\) and \(T=512\),
+          or 1.19 TFLOP/s, and larger batches did not improve on that. At these
+          measured rates, matching the record's 3.927B tokens takes 9 to 19
+          days&mdash;close to the original 19.7-day extrapolation and well short
+          of more optimistic scenarios, at least for an unoptimised dense
+          implementation. The record's recurrent, quantisation-aware
+          architecture would still need its own benchmark.
         </p>
         <p>
           There is one more useful way to read the result. Combining
@@ -353,8 +369,8 @@
         \end{align}
         <p>
           For a ten-minute run, this crude calculation gives about 84M parameters
-          for the measured eight-H100 compute budget, about 1.6M using the measured
-          M2 MLX anchor (or 3.2M under the optimistic scenario), and roughly
+          for the measured eight-H100 compute budget, about 1.7&ndash;2.4M for
+          the measured M2 dense-transformer rates, and roughly
           0.5&ndash;1.0M for the CPU assumption. This explains why a ten-minute
           local experiment is better matched to a model of a few million
           parameters than to the competition's 35&ndash;40M models.
@@ -443,6 +459,9 @@
           parameter before activations are included. Equation
           \(\eqref{eq:weight_storage}\) should therefore be treated as an
           inference-weight estimate, not a complete training-memory estimate.
+          The complete training estimate, including the activation terms, is
+          derived and measured in
+          <a href="estimating-transformer-training-memory.html">Estimating Transformer Training Memory</a>.
         </p>
 
         <h2 class="section" id="transfer">Transferring the Model for Every Token</h2>
@@ -633,6 +652,16 @@
             The M2 anchor is from a local five-minute
             <code>train_gpt_mlx.py</code> run: 361,608 parameters, 8,428 steps,
             and 8,192 tokens per step.
+          </li>
+          <li>
+            The 10.6M, 41.2M, and 100.4M dense measurements are from the
+            measured section of
+            <a href="estimating-transformer-training-memory.html">Estimating Transformer Training Memory</a>:
+            plain MLX modules, FP32, ordinary Adam, uncompiled training step,
+            on an 8 GB M2. The batched rows use the same 41M shape
+            \((10, 512, 8, 8{,}448)\) at \(B=4\) and \(T=512\); throughput at
+            \(B=8\) was slightly lower, so \(B=4\) is reported as the saturated
+            rate.
           </li>
         </ol>
       </article>
