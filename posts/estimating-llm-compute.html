@@ -368,13 +368,28 @@
         \label{eq:balanced_model}
         \end{align}
         <p>
-          For a ten-minute run, this crude calculation gives about 84M parameters
-          for the measured eight-H100 compute budget, about 1.7&ndash;2.4M for
-          the measured M2 dense-transformer rates, and roughly
-          0.5&ndash;1.0M for the CPU assumption. This explains why a ten-minute
-          local experiment is better matched to a model of a few million
-          parameters than to the competition's 35&ndash;40M models.
+          This is the recipe for sizing a run on any machine: estimate the
+          effective training throughput \(C_{\text{eff}}\) (a short measured run
+          beats any spec sheet), multiply by the time budget, divide by 120, and
+          take the square root. For a ten-minute run, this crude calculation
+          gives about 84M parameters for the measured eight-H100 compute budget,
+          about 1.7&ndash;2.4M for the measured M2 dense-transformer rates, and
+          roughly 0.5&ndash;1.0M for the CPU assumption. This explains why a
+          ten-minute local experiment is better matched to a model of a few
+          million parameters than to the competition's 35&ndash;40M models.
         </p>
+
+        <div class="callout">
+          <p>
+            Putting the two articles together: memory says an 8 GB M2 can
+            <em>hold</em> a 100M-parameter training run, but compute says ten
+            minutes only <em>feeds</em> about a 2M-parameter model to its
+            \(20N\) token budget. On an M2, Parameter Golf would really be time
+            golf&mdash;the clock binds about fifty times sooner than
+            memory&mdash;whereas on eight H100s memory is abundant and the
+            game is spending compute well.
+          </p>
+        </div>
 
         <h2 class="section" id="inference">Inference Computation</h2>
         <p>
