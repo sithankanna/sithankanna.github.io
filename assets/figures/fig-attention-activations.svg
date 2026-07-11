@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" width="760" height="340" font-family="Georgia, 'Times New Roman', serif" fill="#252825" role="img" aria-label="Self-attention activation flow. Input branches into Q, K, and V; Q K transpose forms attention scores, softmax forms probabilities, probabilities multiply V, an output projection is applied, and the residual input is added.">
+  <defs>
+    <marker id="arrow-attn" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="#252825"/>
+    </marker>
+  </defs>
+  <style>
+    .math { font-family: "Times New Roman", Times, serif; font-style: italic; }
+    .sub { font-style: normal; }
+  </style>
+
+  <text x="380" y="23" text-anchor="middle" font-size="15" font-weight="bold">Saved activations in self-attention</text>
+
+  <rect x="18" y="127" width="76" height="54" rx="6" fill="#e8f0fa" stroke="#3f6fa0" stroke-width="1.3"/>
+  <text x="56" y="150" text-anchor="middle" font-size="14" font-weight="bold">Input</text>
+  <text class="math" x="56" y="168" text-anchor="middle" font-size="11" fill="#3f6fa0">BTd<tspan class="sub" baseline-shift="sub" font-size="8">emb</tspan></text>
+
+  <g stroke="#252825" stroke-width="1.25" fill="none" marker-end="url(#arrow-attn)">
+    <path d="M94 154 L118 154 L118 72 L142 72"/>
+    <line x1="94" y1="154" x2="142" y2="154"/>
+    <path d="M94 154 L118 154 L118 236 L142 236"/>
+    <path d="M210 72 L232 72 L232 114 L254 114"/>
+    <path d="M210 154 L232 154 L232 124 L254 124"/>
+    <line x1="354" y1="119" x2="380" y2="119"/>
+    <line x1="482" y1="119" x2="510" y2="119"/>
+    <path d="M210 236 L490 236 L490 154 L510 154"/>
+    <line x1="590" y1="137" x2="612" y2="137"/>
+    <line x1="670" y1="137" x2="696" y2="137"/>
+    <path d="M94 166 L106 166 L106 298 L709 298 L709 158"/>
+  </g>
+
+  <g>
+    <rect x="142" y="45" width="68" height="54" rx="6" fill="#eef8ee" stroke="#4a8a4a" stroke-width="1.3"/>
+    <text x="176" y="68" text-anchor="middle" font-size="16" font-weight="bold" font-style="italic">Q</text>
+    <text class="math" x="176" y="87" text-anchor="middle" font-size="10.5" fill="#3a7a3a">BTd<tspan class="sub" baseline-shift="sub" font-size="7.5">emb</tspan></text>
+
+    <rect x="142" y="127" width="68" height="54" rx="6" fill="#eef8ee" stroke="#4a8a4a" stroke-width="1.3"/>
+    <text x="176" y="150" text-anchor="middle" font-size="16" font-weight="bold" font-style="italic">K</text>
+    <text class="math" x="176" y="169" text-anchor="middle" font-size="10.5" fill="#3a7a3a">BTd<tspan class="sub" baseline-shift="sub" font-size="7.5">emb</tspan></text>
+
+    <rect x="142" y="209" width="68" height="54" rx="6" fill="#eef8ee" stroke="#4a8a4a" stroke-width="1.3"/>
+    <text x="176" y="232" text-anchor="middle" font-size="16" font-weight="bold" font-style="italic">V</text>
+    <text class="math" x="176" y="251" text-anchor="middle" font-size="10.5" fill="#3a7a3a">BTd<tspan class="sub" baseline-shift="sub" font-size="7.5">emb</tspan></text>
+  </g>
+
+  <path d="M220 45 h12 v218 h-12" fill="none" stroke="#4a8a4a" stroke-width="1.2"/>
+  <text class="math" x="240" y="277" text-anchor="middle" font-size="11" font-weight="bold" fill="#3a7a3a">3BTd<tspan class="sub" baseline-shift="sub" font-size="8">emb</tspan></text>
+
+  <rect x="254" y="83" width="100" height="72" rx="6" fill="#eef8ee" stroke="#4a8a4a" stroke-width="1.3"/>
+  <text x="304" y="108" text-anchor="middle" font-size="15" font-weight="bold" font-style="italic">QK<tspan baseline-shift="super" font-size="10">T</tspan></text>
+  <text x="304" y="128" text-anchor="middle" font-size="11">scores</text>
+  <text class="math" x="304" y="144" text-anchor="middle" font-size="10.5" fill="#3a7a3a">Bn<tspan class="sub" baseline-shift="sub" font-size="7.5">head</tspan>T²</text>
+
+  <rect x="380" y="83" width="102" height="72" rx="6" fill="#fce6cd" stroke="#d18a2a" stroke-width="1.3"/>
+  <text x="431" y="108" text-anchor="middle" font-size="14" font-weight="bold">softmax</text>
+  <text x="431" y="128" text-anchor="middle" font-size="11">probabilities</text>
+  <text class="math" x="431" y="144" text-anchor="middle" font-size="10.5" fill="#a3671f">Bn<tspan class="sub" baseline-shift="sub" font-size="7.5">head</tspan>T²</text>
+
+  <rect x="510" y="101" width="80" height="72" rx="6" fill="#eef8ee" stroke="#4a8a4a" stroke-width="1.3"/>
+  <text x="550" y="127" text-anchor="middle" font-size="14" font-weight="bold">× V</text>
+  <text x="550" y="146" text-anchor="middle" font-size="11">context</text>
+  <text class="math" x="550" y="162" text-anchor="middle" font-size="10.5" fill="#3a7a3a">BTd<tspan class="sub" baseline-shift="sub" font-size="7.5">emb</tspan></text>
+
+  <rect x="612" y="107" width="58" height="60" rx="5" fill="#e8f0fa" stroke="#3f6fa0" stroke-width="1.3"/>
+  <text x="641" y="132" text-anchor="middle" font-size="14" font-weight="bold" font-style="italic">W<tspan baseline-shift="sub" font-size="9">O</tspan></text>
+  <text class="math" x="641" y="153" text-anchor="middle" font-size="10.5" fill="#3f6fa0">BTd<tspan class="sub" baseline-shift="sub" font-size="7.5">emb</tspan></text>
+
+  <circle cx="713" cy="137" r="17" fill="#fcf1c9" stroke="#c9ab3f" stroke-width="1.3"/>
+  <text x="713" y="143" text-anchor="middle" font-size="20">+</text>
+  <text x="718" y="183" text-anchor="middle" font-size="10.5" fill="#686e68">residual</text>
+
+  <line x1="730" y1="137" x2="748" y2="137" stroke="#252825" stroke-width="1.25" marker-end="url(#arrow-attn)"/>
+
+  <rect x="213" y="304" width="334" height="29" rx="14.5" fill="#eef8ee" stroke="#9bc49b"/>
+  <text x="380" y="323" text-anchor="middle" font-size="13">
+    saved attention values = <tspan class="math" font-weight="bold">5BTd</tspan><tspan class="sub" baseline-shift="sub" font-size="9" font-weight="bold">emb</tspan>
+    <tspan class="math" font-weight="bold"> + 2Bn</tspan><tspan class="sub" baseline-shift="sub" font-size="9" font-weight="bold">head</tspan><tspan class="math" font-weight="bold">T²</tspan>
+  </text>
+</svg>
