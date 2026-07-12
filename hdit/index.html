@@ -134,6 +134,53 @@
       }
       .principles em { color: var(--amber); font-style: italic; }
 
+      .solo-founder {
+        max-width: 42rem;
+        margin: 2.4rem 0 2.7rem;
+        padding: 1.35rem 1.5rem 1.2rem;
+        border: 1px solid var(--line);
+        border-radius: 0.6rem;
+        background: rgba(255,255,255,0.025);
+      }
+      .solo-founder h2 {
+        margin: 0 0 0.45rem;
+        font-size: 1.45rem;
+        line-height: 1.2;
+      }
+      .solo-founder > p { margin-bottom: 0.9rem; }
+      .solo-founder ul { margin: 0; padding: 0; list-style: none; }
+      .solo-founder li {
+        position: relative;
+        margin-top: 0.65rem;
+        padding-left: 1.3rem;
+        color: #d6d6d3;
+      }
+      .solo-founder li::before {
+        content: "•";
+        position: absolute;
+        left: 0.15rem;
+        color: var(--amber);
+      }
+      .solo-founder strong { color: var(--ink); }
+      .solo-founder .cta {
+        display: inline-block;
+        margin-top: 1.25rem;
+        padding: 0.65rem 1rem;
+        border: 1px solid var(--amber);
+        border-radius: 0.35rem;
+        color: var(--amber);
+        font-family: var(--sans);
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-decoration: none;
+        transition: background-color .14s ease, color .14s ease;
+      }
+      .solo-founder .cta:hover {
+        background: var(--amber);
+        color: #1a1408;
+      }
+
       .section-label {
         font-family: var(--sans);
         font-size: 0.72rem;
@@ -425,6 +472,17 @@
         <p>It moves you from a broad topic to a clearer question, then to one workable idea, then to a single concrete next step. It is not about producing a perfect answer. It is about making rough thinking useful.</p>
 
         <p>You&rsquo;ll need a notebook or a blank page, and a quiet 15 or 40 minutes. This page keeps the timing and shows you where you are in the process. The thinking and writing happen on your own paper. Nothing you write here is stored or sent anywhere.</p>
+
+        <section class="solo-founder" aria-labelledby="solo-founders">
+          <h2 id="solo-founders">For solo founders</h2>
+          <p>Building alone can mean carrying every open question around in your head. A group session gives you a little structure and company, without taking the thinking away from you.</p>
+          <ul>
+            <li><strong>A clear container.</strong> The timer gives you permission to focus on one question, instead of trying to solve the whole company at once.</li>
+            <li><strong>Your thinking comes first.</strong> You get space to form your own view before advice, opinions, or the latest thing you read takes over.</li>
+            <li><strong>Momentum without performance.</strong> Other people bring energy and accountability; you still leave with a next step that is yours.</li>
+          </ul>
+          <a class="cta" href="https://luma.com/hdit" target="_blank" rel="noopener">Join the next HDIT session on Luma &rarr;</a>
+        </section>
 
         <ul class="principles">
           <li><em>Any topic</em> works. It really doesn&rsquo;t matter.</li>
