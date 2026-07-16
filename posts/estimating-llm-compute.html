@@ -26,7 +26,7 @@
           <a href="#parameter-golf">3. Parameter Golf in 10 Minutes</a>
           <a class="toc-sub" href="#golf-runs">3.1 Actual Competition Runs</a>
           <a class="toc-sub" href="#golf-data">3.2 Which FineWeb?</a>
-          <a class="toc-sub" href="#golf-local">3.3 M2 and CPU Equivalents</a>
+          <a class="toc-sub" href="#golf-local">3.3 Specs, Equations, and Local Equivalents</a>
           <a href="#inference">4. Inference Computation</a>
           <a href="#storage">5. Storing the Model</a>
           <a href="#transfer">6. Transferring the Model</a>
@@ -125,6 +125,25 @@
         \label{eq:training_flops}
         \end{align}
         <p>
+          This is a count of <em>model FLOPs</em>, not a hardware-counter
+          reading. The \(6N\) convention counts the parameterised matrix
+          multiplications in a standard dense transformer and excludes
+          self-attention. PaLM gives the more complete per-token estimate
+        </p>
+        \begin{align}
+        \text{Training FLOPs per token}
+        \approx {} & 6N + 12LHQT,
+        \label{eq:training_flops_attention}
+        \end{align}
+        <p>
+          where \(L\) is the number of layers, \(H\) the number of attention
+          heads, \(Q\) the head dimension, and \(T\) the sequence length. The
+          attention term matters more for small models and long sequences.
+          Weight sharing needs another correction: if a recurrent transformer
+          applies the same saved block several times, \(N\) counts its parameters
+          once even though the hardware executes the block several times.
+        </p>
+        <p>
           For example, training a 7-billion-parameter model on 140 billion tokens
           gives
         </p>
@@ -134,10 +153,11 @@
         = {} & 5.88 \times 10^{21}\ \text{FLOPs}.
         \end{align}
         <p>
-          Dividing this number by a processor's advertised FLOP/s only gives an
-          ideal lower bound on training time. Real training does not sustain peak
-          arithmetic throughput continuously; data loading, communication,
-          non-matrix operations, and imperfect utilisation all add time.
+          Dividing this number by a processor's advertised FLOP/s—at the same
+          numerical precision and sparsity assumption—only gives an ideal lower
+          bound on training time. Real training does not sustain peak arithmetic
+          throughput continuously; data loading, communication, non-matrix
+          operations, and imperfect utilisation all add time.
         </p>
 
         <h2 class="section" id="parameter-golf">Parameter Golf in 10 Minutes</h2>
@@ -153,10 +173,10 @@
         <div class="callout">
           <p>
             <strong>Short version:</strong> a 36M-class record sees about 3.9B
-            tokens in ten minutes on eight H100s. The same amount of training is
-            a measured 9&ndash;19 days for a plain dense model on an M2 and
-            months under the CPU-only assumptions below. It does not come close
-            to consuming full FineWeb.
+            tokens in ten minutes on eight H100s. Projecting that token count
+            onto a plain 35.95M dense model gives roughly 8&ndash;20 days on the
+            measured M2 and months under the CPU-only assumptions below. It does
+            not come close to consuming full FineWeb.
           </p>
         </div>
 
@@ -172,9 +192,11 @@
 
         <h3 class="subsection" id="golf-runs">Actual Competition Runs</h3>
         <p>
-          The logs are more useful than advertised peak FLOP/s. They tell us how
-          many tokens each complete implementation actually processed before the
-          600-second cutoff.
+          The logs answer a different question from a specification sheet. A
+          hardware specification gives a theoretical peak; a log gives observed
+          tokens per second. An equation such as \(6N\) is the bridge between
+          them. Keeping those three quantities separate avoids calling an
+          equation-derived number a measurement.
         </p>
 
         <div class="data-table-wrap">
@@ -270,113 +292,173 @@
           bytes provide the common denominator when tokenizers differ.
         </p>
 
-        <h3 class="subsection" id="golf-local">M2 and CPU Equivalents</h3>
+        <h3 class="subsection" id="golf-local">Specs, Equations, and Local Equivalents</h3>
         <p>
-          We can turn \(6ND\) around. If a system sustains effective training
-          throughput \(C_{\text{eff}}\), then the token budget in time \(t\) is
+          There are three different layers in the comparison:
+        </p>
+        <ol>
+          <li>
+            <strong>Published specification:</strong> the theoretical arithmetic
+            or bandwidth peak of the hardware.
+          </li>
+          <li>
+            <strong>Observed throughput:</strong> tokens per second recorded by a
+            complete training program.
+          </li>
+          <li>
+            <strong>Equation-derived throughput:</strong> observed tokens per
+            second multiplied by an assumed FLOP count per token.
+          </li>
+        </ol>
+
+        <h4>Eight H100s: Specification Versus the Record</h4>
+        <p>
+          NVIDIA quotes 1,979 BF16 Tensor TFLOP/s for one H100 SXM
+          <em>with structured sparsity</em>. The corresponding dense BF16 peak is
+          about 989.5 TFLOP/s per GPU, or 7.92 PFLOP/s across eight GPUs. The
+          Parameter Golf record does not claim the 2:4 structured sparsity needed
+          for the doubled number, so the dense peak is the relevant comparison.
+        </p>
+        <p>
+          The record log gives the observed quantity directly:
         </p>
         \begin{align}
-        D \approx {} & \frac{C_{\text{eff}}t}{6N}.
+        R_{\text{observed}}
+        \approx {} & \frac{3.927 \times 10^9\ \text{tokens}}{600\ \text{s}} \\
+        \approx {} & 6.55 \times 10^6\ \text{tokens/s}.
+        \label{eq:h100_observed_tokens}
+        \end{align}
+        <p>
+          If we now apply the simple \(6N\) convention, we derive—not
+          independently measure—the following model-FLOPs rate:
+        </p>
+        \begin{align}
+        C_{6N}
+        = {} & 6N R_{\text{observed}} \\
+        \approx {} & 6(35.95 \times 10^6)(6.55 \times 10^6) \\
+        \approx {} & 1.41 \times 10^{15}\ \text{FLOP/s}.
+        \label{eq:h100_6n_throughput}
+        \end{align}
+        <p>
+          Relative to the 7.92 PFLOP/s dense BF16 hardware peak, this simple
+          normalisation is about 18%. That is a plausible end-to-end utilisation,
+          but it is not proof that the hardware executed exactly 1.41 PFLOP/s:
+          the agreement is partly constructed by the \(6N\) equation itself.
+        </p>
+        <p>
+          The record also shows why \(6N\) is only a landmark. It starts with 11
+          physical layers, then applies layers 3&ndash;5 two additional times
+          after step 2,204. Recounting only those repeated linear layers raises
+          the rough rate to about 1.8 PFLOP/s, or 23% of dense BF16 peak.
+          Self-attention adds more work, but the exact amount depends on the
+          packed document lengths, which are not recoverable from the summary
+          throughput log. The clean statement is therefore: <strong>6.55M
+          tokens/s observed, 1.41 PFLOP/s under the simple \(6N\)
+          normalisation</strong>.
+        </p>
+
+        <h4>The M2: What the Specification Does and Does Not Tell Us</h4>
+        <p>
+          The measured machine is an 8 GB MacBook Air with an M2, an 8-core CPU,
+          and a 10-core GPU. Apple publishes 100 GB/s of unified-memory bandwidth,
+          but it does not publish a directly comparable FP32 or BF16 GPU
+          training-FLOP/s figure. The advertised 15.8 trillion operations per
+          second belongs to the Neural Engine; these MLX training runs use the
+          GPU, so that number is not the relevant ceiling.
+        </p>
+        <p>
+          This means the M2 arithmetic comparison must start from measured
+          tokens per second. We can define a useful normalised quantity
+        </p>
+        \begin{align}
+        C_{6N} \equiv {} & 6N R_{\text{observed}},
+        \label{eq:6n_equivalent_throughput}
+        \end{align}
+        <p>
+          and turn it around to project the token budget for a model of size
+          \(N\) in time \(t\):
+        </p>
+        \begin{align}
+        D_{\text{projected}} \approx {} & \frac{C_{6N}t}{6N}.
         \label{eq:tokens_from_time}
         \end{align}
         <p>
-          A local five-minute MLX run provides one measured anchor. A
-          361,608-parameter model processed 69.0M tokens in 300 seconds. Under the
-          \(6ND\) convention, that is about 0.50 TFLOP/s of effective training
-          throughput. This is an end-to-end measurement, not the M2's advertised
-          peak.
-        </p>
-        <p>
-          If we naively hold that measured rate constant for a 35.95M dense model,
-          the comparison looks like this:
+          \(C_{6N}\) is useful for normalising runs, but it is derived from the
+          observed token rate. It should not be confused with an independently
+          measured M2 FLOP/s value.
         </p>
 
         <div class="data-table-wrap">
           <table class="data">
             <thead>
               <tr>
-                <th class="name">System or Assumption</th>
-                <th>Effective FLOP/s</th>
-                <th>36M tokens in 10 min</th>
+                <th class="name">Run or Assumption</th>
+                <th>Observed tokens/s</th>
+                <th>\(6N\)-equivalent</th>
+                <th>Projected 35.95M tokens in 10 min</th>
                 <th>Time to match 3.927B</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td class="name">8&times;H100, actual record</td>
-                <td>1.41 PFLOP/s*</td><td>3.927 B</td><td>10 min</td>
-              </tr>
-              <tr>
                 <td class="name">M2 MLX, measured 0.36M anchor</td>
-                <td>0.50 TFLOP/s</td><td>1.39 M</td><td>19.7 days</td>
+                <td>230,000</td><td>0.50 TFLOP/s</td><td>1.39 M</td><td>19.6 days</td>
               </tr>
               <tr>
                 <td class="name">M2 MLX, measured 41M dense, \(B=1\), \(T=2048\)</td>
-                <td>0.60 TFLOP/s</td><td>1.45 M</td><td>18.8 days</td>
+                <td>&approx;2,400</td><td>0.60 TFLOP/s</td><td>1.67 M</td><td>16.3 days</td>
               </tr>
               <tr>
                 <td class="name">M2 MLX, measured 41M dense, \(B=4\), \(T=512\)</td>
-                <td>1.19 TFLOP/s</td><td>2.95 M</td><td>9.2 days</td>
+                <td>&approx;4,900</td><td>1.19 TFLOP/s</td><td>3.31 M</td><td>8.2 days</td>
               </tr>
               <tr>
                 <td class="name">CPU-only assumption</td>
-                <td>0.05&ndash;0.20 TFLOP/s</td><td>0.14&ndash;0.56 M</td><td>49&ndash;196 days</td>
+                <td>Not measured</td><td>0.05&ndash;0.20 TFLOP/s assumed</td><td>0.14&ndash;0.56 M</td><td>49&ndash;196 days</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <p>
-          *The H100 number is \(6ND/t\)-equivalent throughput, not a measured
-          hardware counter. The record uses recurrence, quantisation-aware
-          operations, and specialised kernels, so it is only a scaling landmark.
+          The projected columns put every row onto the same hypothetical 35.95M
+          dense model. The original token rates came from different model sizes,
+          so these projections assume that their \(6N\)-equivalent rate transfers
+          unchanged. That is useful for scale, not a promise about the exact
+          Parameter Golf architecture.
         </p>
         <p>
-          The most defensible conclusion is the order of magnitude: reproducing
-          the <em>amount of training</em> in a ten-minute eight-H100 record is
-          likely several days to several weeks on an M2, and roughly months on a
-          CPU-only implementation. The CPU row is explicitly an assumed range;
-          it is not a benchmark of this machine.
-        </p>
-        <p>
-          The 0.36M anchor could have extrapolated badly: a larger model may
-          execute its matrix multiplications more efficiently, but it also needs
-          smaller microbatches, gradient accumulation, and replacements for
-          CUDA-only FlashAttention and Triton kernels. The measured 41M rows
-          settle this at the right scale. While checking the memory estimate in
-          <a href="estimating-transformer-training-memory.html">Estimating Transformer Training Memory</a>,
-          we trained plain dense MLX transformers on an 8 GB M2 in FP32 with
-          ordinary Adam and an uncompiled training step. Effective \(6ND\)
-          throughput at \(B=1\) grew with model size&mdash;about 0.37 TFLOP/s at
-          10.6M parameters, 0.60 at 41.2M, and 0.86 at 100.4M&mdash;so larger
-          matrices do run more efficiently. Batching helped further: the 41M
-          model reached about 4,900 tokens per second at \(B=4\) and \(T=512\),
-          or 1.19 TFLOP/s, and larger batches did not improve on that. At these
-          measured rates, matching the record's 3.927B tokens takes 9 to 19
-          days&mdash;close to the original 19.7-day extrapolation and well short
-          of more optimistic scenarios, at least for an unoptimised dense
-          implementation. The record's recurrent, quantisation-aware
-          architecture would still need its own benchmark.
+          The tiny 0.36M anchor could have extrapolated badly. The measurements
+          linked from
+          <a href="estimating-transformer-training-memory.html">Memory to Train a Transformer</a>
+          provide the better check at approximately the right model size: the 41M
+          dense model achieved about 2,400 tokens/s at \(B=1,T=2048\) and 4,900
+          tokens/s at \(B=4,T=512\). Under the common \(6N\) normalisation, that
+          puts the 35.95M projection at roughly 8&ndash;16 days; the small-model
+          anchor gives about 20 days. The CPU row remains an unbenchmarked
+          assumption.
         </p>
         <p>
           There is one more useful way to read the result. Combining
-          \(D \approx 20N\) with \(6ND \approx C_{\text{eff}}t\) gives
+          \(D \approx 20N\) with \(6ND \approx C_{6N}t\) gives
         </p>
         \begin{align}
         N_{\text{balanced}} \approx {} &
-        \sqrt{\frac{C_{\text{eff}}t}{120}}.
+        \sqrt{\frac{C_{6N}t}{120}}.
         \label{eq:balanced_model}
         \end{align}
         <p>
-          This is the recipe for sizing a run on any machine: estimate the
-          effective training throughput \(C_{\text{eff}}\) (a short measured run
-          beats any spec sheet), multiply by the time budget, divide by 120, and
-          take the square root. For a ten-minute run, this crude calculation
-          gives about 84M parameters for the measured eight-H100 compute budget,
-          about 1.7&ndash;2.4M for the measured M2 dense-transformer rates, and
-          roughly 0.5&ndash;1.0M for the CPU assumption. This explains why a
-          ten-minute local experiment is better matched to a model of a few
-          million parameters than to the competition's 35&ndash;40M models.
+          This is the recipe for sizing a run on any machine: obtain a
+          \(6N\)-equivalent rate from a short benchmark, multiply by the time
+          budget, divide by 120, and take the square root. A peak specification
+          should not be substituted unless the workload's sustained utilisation
+          is also known. For a ten-minute run, the simple \(6N\) normalisation
+          gives about 84M parameters for the eight-H100 record, about
+          1.7&ndash;2.4M for the measured M2 dense-transformer rates, and roughly
+          0.5&ndash;1.0M for the CPU assumption. Architecture-aware FLOP counts
+          would move these values, but the scale remains useful: a ten-minute
+          local experiment is better matched to a model of a few million
+          parameters than to the competition's 35&ndash;40M models.
         </p>
 
         <div class="callout">
@@ -476,7 +558,7 @@
           inference-weight estimate, not a complete training-memory estimate.
           The complete training estimate, including the activation terms, is
           derived and measured in
-          <a href="estimating-transformer-training-memory.html">Estimating Transformer Training Memory</a>.
+          <a href="estimating-transformer-training-memory.html">Memory to Train a Transformer</a>.
         </p>
 
         <h2 class="section" id="transfer">Transferring the Model for Every Token</h2>
@@ -527,12 +609,13 @@
 
         <h2 class="section" id="hardware">Apple M2 and NVIDIA H200</h2>
         <p>
-          Consider two very different systems. Apple's M2 has up to 24 GB of
-          unified memory and 100 GB/s of memory bandwidth. With unified memory,
-          both the CPU and GPU access the same pool. MLX takes advantage of this:
-          an array does not need to be copied into a separate GPU memory before a
-          GPU operation can use it. NVIDIA's H200, by comparison, has 141 GB of
-          HBM3e memory and 4.8 TB/s of memory bandwidth.
+          Consider two very different systems. Apple offered the M2 with up to
+          24 GB of unified memory and 100 GB/s of memory bandwidth; the machine
+          measured in this article has 8 GB. With unified memory, both the CPU
+          and GPU access the same pool. MLX takes advantage of this: an array does
+          not need to be copied into separate GPU memory before a GPU operation
+          can use it. NVIDIA's H200, by comparison, has 141 GB of HBM3e memory
+          and 4.8 TB/s of memory bandwidth.
         </p>
         <p>
           Applying \(\eqref{eq:memory_rate}\) gives the following ideal
@@ -553,7 +636,7 @@
             </thead>
             <tbody>
               <tr>
-                <td>7B FP16</td><td>14 GB</td><td>7.1 tokens/s</td><td>343 tokens/s</td>
+                <td>7B FP16</td><td>14 GB</td><td>7.1 tokens/s&dagger;</td><td>343 tokens/s</td>
               </tr>
               <tr>
                 <td>7B 4-bit</td><td>3.5 GB</td><td>28.6 tokens/s</td><td>1,371 tokens/s</td>
@@ -568,17 +651,23 @@
           </table>
         </div>
         <p>
+          &dagger;The 7B FP16 weights do not fit on the tested 8 GB M2. The
+          7.1-token/s figure is only the bandwidth ceiling for an M2
+          configuration with enough memory, before runtime overhead and KV-cache
+          space are included.
+        </p>
+        <p>
           *The 70B FP16 weights nominally fit in the H200's 141 GB, but leave only
           about 1 GB for everything else. A practical deployment needs more room
           for the KV cache, activations, and runtime allocations.
         </p>
         <p>
-          The table makes two different hardware limits visible. The M2's memory
-          capacity rules out the 70B examples before we consider speed. For the
-          models that do fit, quantisation reduces both storage and the number of
-          weight bytes transferred per token. The H200 can hold larger models and
-          move their weights much faster, but it is still not exempt from the same
-          bandwidth calculation.
+          The table makes two different hardware limits visible. The tested 8 GB
+          M2 rules out 7B FP16 as well as both 70B examples before we consider
+          speed. For models that fit, quantisation reduces both storage and the
+          number of weight bytes transferred per token. The H200 can hold larger
+          models and move their weights much faster, but it is still not exempt
+          from the same bandwidth calculation.
         </p>
 
         <h2 class="section" id="limitations">What the Estimate Misses</h2>
@@ -587,6 +676,11 @@
           important details:
         </p>
         <ol>
+          <li>
+            The \(6N\) training estimate assumes each saved parameter is applied
+            approximately once per token. Weight-tied recurrent blocks require a
+            count of block applications, not just unique stored parameters.
+          </li>
           <li>
             The \(2N\) inference estimate captures parameterised matrix
             multiplications, but attention also performs work that grows with the
@@ -601,9 +695,10 @@
             weights do not produce a perfect fourfold speed-up over FP16.
           </li>
           <li>
-            Advertised FLOP/s and memory bandwidth are peak values. Kernel shape,
-            framework overhead, thermal limits, and memory-access patterns reduce
-            sustained performance.
+            Advertised FLOP/s depends on numerical precision and sometimes assumes
+            structured sparsity. Even after matching those assumptions, kernel
+            shape, framework overhead, thermal limits, and memory-access patterns
+            reduce sustained performance.
           </li>
           <li>
             Prompt processing (prefill) handles many tokens in parallel and has a
@@ -611,11 +706,13 @@
           </li>
         </ol>
         <p>
-          Still, the simple equations are useful. Start with \(6ND\) for training
-          computation, \(Nb\) for inference-weight storage, \(2N\) FLOPs for each
-          generated token, and \(Nb\) weight bytes transferred for each generated
-          token. Then ask which hardware ceiling is lower. That tells us whether
-          the first limitation is arithmetic, memory capacity, or memory bandwidth.
+          Still, the simple equations are useful. Start with \(6ND\) as the
+          standard dense training baseline, \(Nb\) for inference-weight storage,
+          \(2N\) FLOPs for each generated token, and \(Nb\) weight bytes
+          transferred for each generated token. Then add the architecture-specific
+          corrections and ask which hardware ceiling is lower. That tells us
+          whether the first limitation is arithmetic, memory capacity, or memory
+          bandwidth.
         </p>
 
         <h3>Sources and Notes</h3>
@@ -624,16 +721,27 @@
             The \(6N\) FLOPs per training token convention is described in the
             <a href="https://jmlr.org/papers/volume24/22-1144/22-1144.pdf">PaLM paper</a>,
             which separates it into \(2N\) forward-pass and \(4N\) backward-pass
-            matrix-multiplication FLOPs.
+            matrix-multiplication FLOPs. Its Appendix B gives the additional
+            \(12LHQT\) self-attention term and defines model-FLOPs utilisation
+            against theoretical peak throughput.
           </li>
           <li>
-            Apple lists the M2 at 100 GB/s of unified-memory bandwidth and up to
-            24 GB of memory in its
+            Apple lists an 8-core CPU, a configurable 10-core GPU, 100 GB/s of
+            unified-memory bandwidth, and up to 24 GB of memory in its
             <a href="https://www.apple.com/newsroom/2022/06/apple-unveils-m2-with-breakthrough-performance-and-capabilities/">M2 announcement</a>.
+            The measured MacBook Air has the 10-core GPU and 8 GB of memory.
           </li>
           <li>
             The <a href="https://ml-explore.github.io/mlx/build/html/usage/unified_memory.html">MLX documentation</a>
             explains how its arrays are shared by the Apple-silicon CPU and GPU.
+          </li>
+          <li>
+            NVIDIA's
+            <a href="https://www.nvidia.com/en-us/data-center/h100/">H100 specifications</a>
+            list 1,979 BF16 Tensor TFLOP/s with sparsity. NVIDIA's
+            <a href="https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/">Hopper architecture table</a>
+            separates this from the approximately 1,000 dense BF16 TFLOP/s
+            figure used in the comparison.
           </li>
           <li>
             NVIDIA lists 141 GB of HBM3e and 4.8 TB/s of memory bandwidth in the
@@ -648,6 +756,12 @@
           <li>
             The 35.95M-parameter comparison comes from the final
             <a href="https://github.com/openai/parameter-golf/pull/2135">Calib32 record submission</a>.
+            Its
+            <a href="https://github.com/codemath3000/parameter-golf/blob/be7420d/records/track_10min_16mb/2026-05-01_SP8192_PR2130Base_Calib32/train_gpt.py">training script</a>
+            uses BF16 autocast and recurrently reapplies layers 3&ndash;5; a
+            <a href="https://github.com/codemath3000/parameter-golf/blob/f086a9f/records/track_10min_16mb/2026-05-01_SP8192_PR2130Base_Calib32/train_seed0.log">seed log</a>
+            records recurrence beginning at step 2,204 and training ending at
+            step 4,997 after 599.6 seconds.
             The larger-model example is the official
             <a href="https://github.com/openai/parameter-golf/tree/main/records/track_10min_16mb/2026-03-24_74M_Ternary_UNet_FP8_10L_8192BPE_YaRN_NeoMuon">73.7M-parameter ternary submission</a>.
           </li>
@@ -671,7 +785,7 @@
           <li>
             The 10.6M, 41.2M, and 100.4M dense measurements are from the
             measured section of
-            <a href="estimating-transformer-training-memory.html">Estimating Transformer Training Memory</a>:
+            <a href="estimating-transformer-training-memory.html">Memory to Train a Transformer</a>:
             plain MLX modules, FP32, ordinary Adam, uncompiled training step,
             on an 8 GB M2. The batched rows use the same 41M shape
             \((10, 512, 8, 8{,}448)\) at \(B=4\) and \(T=512\); throughput at
