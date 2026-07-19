@@ -56,6 +56,17 @@
 
       .amber { color: var(--amber); }
       .sans { font-family: var(--sans); }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
 
       .wrap { width: min(100% - 2.5rem, 60rem); margin-inline: auto; }
 
@@ -110,6 +121,38 @@
       }
       .intro p { margin: 0 0 1.1rem; max-width: 42rem; color: #d6d6d3; }
       .intro p.lead { font-size: 1.15rem; color: var(--ink); }
+      .hero-actions {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin: 1.6rem 0 2.5rem;
+      }
+      .hero-cta {
+        display: inline-block;
+        border: 1px solid var(--amber);
+        border-radius: 0.4rem;
+        background: var(--amber);
+        color: #1a1408;
+        font: 700 0.88rem var(--sans);
+        letter-spacing: 0.02em;
+        padding: 0.72rem 1.1rem;
+        text-decoration: none;
+        transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+      }
+      .hero-cta:hover {
+        background: var(--amber-soft);
+        border-color: var(--amber-soft);
+      }
+      .hero-cta.secondary {
+        background: transparent;
+        border-color: transparent;
+        color: var(--ink-dim);
+      }
+      .hero-cta.secondary:hover {
+        border-color: var(--line);
+        color: var(--ink);
+      }
 
       .quote {
         margin: 2rem 0;
@@ -179,6 +222,94 @@
       .why-together .cta:hover {
         background: var(--amber);
         color: #1a1408;
+      }
+      .newsletter-signup {
+        max-width: 42rem;
+        margin: 2.5rem 0 0;
+        padding: 1.35rem 1.5rem;
+        border: 1px solid var(--line);
+        border-radius: 0.6rem;
+        background: rgba(232,163,23,0.035);
+      }
+      .newsletter-signup .signup-kicker {
+        margin: 0 0 0.45rem;
+        color: var(--amber);
+        font: 700 0.66rem var(--sans);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .newsletter-signup h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.45rem;
+        line-height: 1.2;
+      }
+      .newsletter-signup > p {
+        margin-bottom: 1rem;
+        color: #d6d6d3;
+      }
+      .signup-benefits {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.65rem;
+        margin: 0 0 1rem;
+        padding: 0;
+        list-style: none;
+      }
+      .signup-benefits li {
+        position: relative;
+        padding-left: 0.9rem;
+        color: var(--ink-dim);
+        font: 0.78rem/1.45 var(--sans);
+      }
+      .signup-benefits li::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        color: var(--amber);
+      }
+      .signup-row {
+        display: flex;
+        gap: 0.6rem;
+        align-items: stretch;
+      }
+      .signup-row input {
+        min-width: 0;
+        flex: 1;
+        border: 1px solid var(--line);
+        border-radius: 0.35rem;
+        background: rgba(0,0,0,0.2);
+        color: var(--ink);
+        font: 0.92rem var(--sans);
+        padding: 0.72rem 0.85rem;
+        outline: none;
+      }
+      .signup-row input::placeholder { color: var(--ink-dim); }
+      .signup-row input:focus {
+        border-color: var(--amber);
+        box-shadow: 0 0 0 2px rgba(232,163,23,0.12);
+      }
+      .signup-row button {
+        border: 1px solid var(--amber);
+        border-radius: 0.35rem;
+        background: var(--amber);
+        color: #1a1408;
+        font: 700 0.82rem var(--sans);
+        letter-spacing: 0.03em;
+        padding: 0.72rem 1.1rem;
+      }
+      .signup-row button:hover {
+        background: var(--amber-soft);
+        border-color: var(--amber-soft);
+      }
+      .newsletter-signup .signup-note {
+        margin: 0.65rem 0 0;
+        color: var(--ink-dim);
+        font: 0.72rem/1.45 var(--sans);
+      }
+      @media (max-width: 30rem) {
+        .signup-row { flex-direction: column; }
+        .signup-row button { width: 100%; }
+        .signup-benefits { grid-template-columns: 1fr; gap: 0.35rem; }
       }
       .scope-note {
         max-width: 42rem;
@@ -464,6 +595,15 @@
         border-left: 2px solid var(--amber); color: #d6d6d3; font-style: italic;
       }
       .finish .nextq { font-size: 1.3rem; margin: 1.5rem 0 0.4rem; }
+      .finish .newsletter-signup {
+        margin: 2rem auto 0;
+        text-align: left;
+      }
+      .finish .newsletter-signup h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.45rem;
+        line-height: 1.2;
+      }
       @media (max-width: 30rem) {
         .stage-controls { flex-direction: column; gap: 0.8rem; align-items: stretch; }
         .work-controls { display: grid; grid-template-columns: auto 1fr; align-items: center; }
@@ -496,6 +636,11 @@
 
         <p>You&rsquo;ll need a notebook or a blank page, and a quiet 15 or 40 minutes. This page keeps the timing and shows you where you are in the process. The thinking and writing happen on your own paper. Nothing you write here is stored or sent anywhere.</p>
 
+        <div class="hero-actions">
+          <a class="hero-cta" href="#choose-session">Start a session &darr;</a>
+          <a class="hero-cta secondary" href="https://luma.com/ceo-hour" target="_blank" rel="noopener">Join a live session &rarr;</a>
+        </div>
+
         <section class="why-together" aria-labelledby="why-together">
           <h2 id="why-together">Why do it together</h2>
           <p>When you think alone, every open question can stay open in your head. Doing CEO Hour alongside other people gives you structure and company without turning it into another meeting.</p>
@@ -518,10 +663,30 @@
         <p style="max-width:42rem;color:#d6d6d3;">Each session is a fixed sequence of short, timed stages. You move through them one at a time, writing on your own paper. Here&rsquo;s the whole shape of each before you start, so nothing is a surprise.</p>
         <div id="overviews"></div>
 
-        <div class="section-label">Choose a session</div>
+        <div class="section-label" id="choose-session">Choose a session</div>
         <div class="modes" id="modes"></div>
 
         <p class="hint-line">Read each prompt, then start its timer when you&rsquo;re ready. You can pause, go back, skip, or leave at any time.</p>
+
+        <section class="newsletter-signup" aria-labelledby="newsletter-title">
+          <p class="signup-kicker">Continue the practice</p>
+          <h2 id="newsletter-title">Get the next CEO Hour technique</h2>
+          <p>Fresh ways to create protected thinking time and stories of what can happen when people actually use it.</p>
+          <ul class="signup-benefits">
+            <li>New thinking techniques to try</li>
+            <li>Upcoming live session times</li>
+            <li>Short stories from people using the practice</li>
+          </ul>
+          <form action="https://buttondown.com/api/emails/embed-subscribe/ceo-hour" method="post">
+            <label class="sr-only" for="newsletter-email">Email address</label>
+            <div class="signup-row">
+              <input id="newsletter-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+              <button type="submit">Send me the next technique</button>
+            </div>
+            <input type="hidden" name="embed" value="1">
+            <p class="signup-note">Free and occasional. Confirm once in your inbox, unsubscribe with one click, and your inbox stays yours.</p>
+          </form>
+        </section>
 
         <div class="scope-note">
           <p>CEO Hour is a personal project, run in a personal capacity. It is a general thinking and writing practice, not investment advice or research, fundraising support, or a forum for recommendations about companies or securities.</p>
@@ -930,10 +1095,24 @@
               <p class="nextq"><strong>${finishCopy.question}</strong></p>
               <p class="faint" style="text-align:center">Write it where you&rsquo;ll see it. Then go do the smallest version of it.</p>
               <div class="controls" style="justify-content:center">
-                <button class="btn primary lg" id="againBtn">Run another session</button>
+                <button class="btn" id="againBtn">Run another session</button>
                 <button class="btn ghost" id="prevBtn">‹ Previous step</button>
-                <button class="btn" id="backBtn">Back to start</button>
+                <button class="btn ghost" id="backBtn">Back to start</button>
               </div>
+              <section class="newsletter-signup" aria-labelledby="finish-newsletter-title">
+                <p class="signup-kicker">Keep the momentum</p>
+                <h2 id="finish-newsletter-title">If this shifted your thinking, keep going</h2>
+                <p>Get new CEO Hour techniques, upcoming live session times, and short stories from people putting the practice to work.</p>
+                <form action="https://buttondown.com/api/emails/embed-subscribe/ceo-hour" method="post">
+                  <label class="sr-only" for="finish-newsletter-email">Email address</label>
+                  <div class="signup-row">
+                    <input id="finish-newsletter-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                    <button type="submit">Send me the next technique</button>
+                  </div>
+                  <input type="hidden" name="embed" value="1">
+                  <p class="signup-note">Free and occasional. Confirm once in your inbox and unsubscribe with one click.</p>
+                </form>
+              </section>
             </div>`;
           $("#againBtn").addEventListener("click", () => start(plan.id));
           $("#prevBtn").addEventListener("click", goBack);
