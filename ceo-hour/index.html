@@ -267,7 +267,7 @@
         padding: clamp(1rem, 2.5vw, 1.8rem) clamp(1rem, 3vw, 2.5rem) 4rem;
       }
 
-      /* top row: small timer at the RIGHT (secondary), exit at the left */
+      /* top row: session identity and a clear route back to session choice */
       .stage-top {
         display: flex;
         align-items: center;
@@ -275,7 +275,6 @@
         gap: 1rem;
         margin-bottom: clamp(0.8rem, 2vh, 1.4rem);
       }
-      .stage-top .left { display: flex; align-items: center; gap: 0.6rem; }
       .mini-mark { font-weight: 700; font-size: 0.95rem; color: var(--ink-dim); }
       .mini-mark sup { font-size: 0.55em; }
 
@@ -294,12 +293,18 @@
         font-size: 1.5rem; font-weight: 300; letter-spacing: 0.01em; color: var(--ink);
       }
       .clock.warn .time { color: var(--amber); }
-      body.resting .clock .time { color: var(--amber-soft); }
       .clock .bar {
         width: 4.5rem; height: 3px; border-radius: 2px; background: var(--line);
         overflow: hidden; align-self: center;
       }
       .clock .bar i { display: block; height: 100%; background: var(--amber); width: 100%; transition: width 1s linear; }
+      .work-clock {
+        min-height: 2.6rem;
+        padding: 0.35rem 0.8rem;
+        border-left: 1px solid var(--line);
+      }
+      .work-clock .time { font-size: 1.15rem; }
+      .work-clock.ready .label { color: var(--amber); }
 
       /* ---------- flow diagram (the "where am I" nav) ---------- */
       .flow {
@@ -424,6 +429,7 @@
         display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center;
         margin-top: clamp(1.2rem, 4vh, 2.2rem);
       }
+      .controls .next-action { margin-left: auto; }
       .btn {
         border: 1px solid var(--line);
         background: rgba(255,255,255,0.02);
@@ -460,6 +466,10 @@
       .finish .nextq { font-size: 1.3rem; margin: 1.5rem 0 0.4rem; }
       @media (max-width: 30rem) {
         .stage-controls { flex-direction: column; gap: 0.8rem; align-items: stretch; }
+        .work-controls { display: grid; grid-template-columns: auto 1fr; align-items: center; }
+        .work-controls .work-clock { justify-self: end; }
+        .work-controls .next-action { grid-column: 1 / -1; width: 100%; margin-left: 0; }
+        .work-controls .previous-action { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
         .copyright { font-size: 0.55rem; max-width: 70vw; }
       }
     </style>
@@ -511,7 +521,7 @@
         <div class="section-label">Choose a session</div>
         <div class="modes" id="modes"></div>
 
-        <p class="hint-line">Best experienced full screen. You can pause, skip, or leave at any time.</p>
+        <p class="hint-line">Read each prompt, then start its timer when you&rsquo;re ready. You can pause, go back, skip, or leave at any time.</p>
 
         <div class="scope-note">
           <p>CEO Hour is a personal project, run in a personal capacity. It is a general thinking and writing practice, not investment advice or research, fundraising support, or a forum for recommendations about companies or securities.</p>
@@ -524,15 +534,8 @@
     <section id="session" aria-live="polite">
       <div class="stage-screen">
         <div class="stage-top">
-          <div class="left">
-            <span class="mini-mark">CEO Hour</span>
-            <button class="btn ghost" id="exitBtn">Exit</button>
-          </div>
-          <div class="clock" id="clock">
-            <span class="label" id="clockLabel">Time left</span>
-            <span class="bar"><i id="clockBar"></i></span>
-            <span class="time" id="clockTime">5:00</span>
-          </div>
+          <span class="mini-mark">CEO Hour</span>
+          <button class="btn ghost" id="exitBtn">Back to start</button>
         </div>
 
         <!-- flow diagram = where you are -->
@@ -548,7 +551,7 @@
 
     <!-- persistent copyright, as on every slide -->
     <div class="copyright">
-      © 2025 Sithan Kanna. All rights reserved.
+      © <span id="copyrightYear">2026</span> Sithan Kanna. All rights reserved.
     </div>
 
     <script>
@@ -567,11 +570,11 @@
           { proc: "Cool-Down",             handoff: null }
         ];
 
-        // 15-min session: New Year goal-setting flow from the original deck.
+        // 15-min session: high-intensity idea reps, then smaller versions.
         const STAGES_MINI = [
-          { proc: "Clarify\nyour Goal",       handoff: "Goal" },
-          { proc: "What action\ncan you take?", handoff: "Actions" },
-          { proc: "Who can you\nask for help?", handoff: "People" }
+          { proc: "Clarify\nyour Goal", handoff: "One Goal" },
+          { proc: "25 Hours\na Day", handoff: "20 Ideas" },
+          { proc: "Only\n5 mins", handoff: "10 Small\nActions" }
         ];
 
         /* Full session content. Wording lifted from the slides. */
@@ -611,25 +614,29 @@
           ]
         };
 
-        /* 15-min session: New Year Goal Setting from the original deck.
-           A different, narrower flow from the 40-min session. */
+        /* 15-min session: three focused rounds with a target number of reps. */
         const MINI = {
           id: "mini",
           stages: STAGES_MINI,
+          finish: {
+            recap: "You chose one goal, generated a wide range of ways to spend an extra hour on it, then shrank those ideas into actions small enough to start.",
+            question: "Which five-minute version will you do first?"
+          },
           steps: [
             { type: "work", stage: 0, heading: ["Clarify your Goal", null], mins: 2,
               prompts: ["Name the goal you want to work on.", "Write it down in one clear line, before breaking it into actions."],
               faint: "Don&rsquo;t worry about it being the perfect goal. Just pick one." },
-            { type: "rest", after: 0, mins: 0.33, msg: "One breath. Now turn the goal into action." },
+            { type: "rest", after: 0, mins: 0.33, msg: "One breath. Next, generate possibilities without judging them." },
 
-            { type: "work", stage: 1, heading: ["What one action", "can you take?"], mins: 6,
-              prompts: ["What is one <b>5-min action</b> you can take <b>today</b> to move closer to your goal?", "What is one <b>5-min action</b> you can take <b>every day this month</b> to move closer to your goal?", "If you had <b>25 hours</b> in a day, how would you spend the <b>extra hour</b> on your goal?"],
-              keep: "Keep writing, <em>don&rsquo;t stop.</em>" },
-            { type: "rest", after: 1, mins: 0.33, msg: "Pause. Now think about who can help." },
+            { type: "work", stage: 1, heading: ["25 Hours a Day", null], mins: 6,
+              prompts: ["If you had <b>25 hours</b> in a day, how would you spend the <b>extra hour</b> on your goal?"],
+              keep: "List at least <b>20 ideas</b>. Keep writing, <em>don&rsquo;t stop.</em>" },
+            { type: "rest", after: 1, mins: 0.33, msg: "Pause. Look at the range you created. Next, make the ideas smaller." },
 
-            { type: "work", stage: 2, heading: ["Who can you", "ask for help?"], mins: 6,
-              prompts: ["Who can you <b>WhatsApp</b> for help?", "Who can you <b>e-Mail</b> for help?", "Who can you <b>call</b> for help?", "Who can you <b>visit in person</b> for help?", "Who can you <b>message on Instagram</b> for help?"],
-              faint: "Pick one person and one channel. That&rsquo;s your Next Step." }
+            { type: "work", stage: 2, heading: ["Only 5 mins", "Shrink the Idea"], mins: 6,
+              prompts: ["Take the ideas from the previous round. For each one, ask: what is the <b>five-minute version</b>?"],
+              keep: "Write at least <b>10 five-minute versions</b>.",
+              faint: "Small enough to begin today. Pick one when the timer ends." }
           ]
         };
 
@@ -640,14 +647,10 @@
         const session = $("#session");
         const stageMain = $("#stageMain");
         const flowEl = $("#flow");
-        const clock = $("#clock");
-        const clockTime = $("#clockTime");
-        const clockBar = $("#clockBar");
-        const clockLabel = $("#clockLabel");
-
+        $("#copyrightYear").textContent = new Date().getFullYear();
         /* ---------- intro cards ---------- */
         [
-          { id: "mini", title: "15-Minute Session", dur: "~15 min", desc: "Goal setting. Clarify a goal, find small daily actions, and pick someone who can help. Ends with one next step." },
+          { id: "mini", title: "15-Minute Session", dur: "~15 min", desc: "Clarify one goal, generate 20 ways to use an extra hour, then turn them into five-minute actions." },
           { id: "full", title: "Full Session", dur: "~40 min", desc: "The complete five-stage practice: Warm Up, Clarify the Question, Generate Ideas, Refine, Cool-Down, with rests between each." }
         ].forEach((c) => {
           const b = document.createElement("button");
@@ -676,7 +679,8 @@
           buildOverview(FULL, "Full Session: Think a Problem Through", "~40 min");
 
         /* ---------- state ---------- */
-        let plan = null, idx = 0, remaining = 0, total = 0, tickId = null, paused = false;
+        let plan = null, idx = 0, remaining = 0, total = 0, tickId = null;
+        let paused = false, timerStarted = false;
 
         function start(id) {
           plan = SESSIONS[id];
@@ -702,7 +706,7 @@
         function render() {
           clearTick();
           paused = false;
-          clock.classList.remove("warn");
+          timerStarted = false;
           if (idx >= plan.steps.length) return finish();
           const step = plan.steps[idx];
           total = step.mins * 60;
@@ -711,10 +715,12 @@
           // which stage is "current" for the flow diagram:
           const curStage = step.type === "work" ? step.stage : step.after; // rest highlights the stage just finished's handoff transition
           buildFlow(curStage, step.type);
-          clockLabel.textContent = step.type === "rest" ? "Rest" : "Time left";
           step.type === "rest" ? renderRest(step) : renderWork(step);
           updateClock();
-          startTick();
+          if (step.type === "rest") {
+            timerStarted = true;
+            startTick();
+          }
         }
 
         /* ----- flow diagram (Process row + Handoff row) ----- */
@@ -735,7 +741,7 @@
           html += '<tr><td class="rowlabel"></td>';
           for (let i = 0; i < n; i++) {
             const act = i === curStage ? "active" : "";
-            html += `<td class="clockcell ${act}"><span class="stop">⏱</span>${procTimes[i] || ""}</td>`;
+            html += `<td class="clockcell ${act}">${procTimes[i] || ""}</td>`;
             if (i < n - 1) html += '<td class="connect"></td>';
           }
           html += '</tr>';
@@ -776,7 +782,7 @@
           for (let i = 0; i < n; i++) {
             if (restTimes[i] && stages[i].handoff) {
               const act = i === curStage ? "active" : "";
-              html += `<td class="clockcell ${act}" style="padding-top:.3rem"><span class="stop">⏱</span>${restTimes[i]}</td>`;
+              html += `<td class="clockcell ${act}" style="padding-top:.3rem">${restTimes[i]}</td>`;
             } else { html += '<td></td>'; }
             if (i < n - 1) html += '<td></td>';
           }
@@ -804,18 +810,37 @@
           if (step.keep) h += `<p class="keep-writing">${step.keep}</p>`;
           if (step.faint) h += `<p class="faint">${step.faint}</p>`;
 
-          h += `<div class="controls">
-                  <button class="btn" id="pauseBtn">Pause</button>
-                  <button class="btn primary" id="nextBtn">Done, next ›</button>
+          h += `<div class="controls work-controls">
+                  <button class="btn primary" id="timerBtn">Start timer</button>
+                  <div class="clock work-clock ready" id="clock" aria-live="off">
+                    <span class="label" id="clockLabel">Ready</span>
+                    <span class="time" id="clockTime">${fmt(remaining)}</span>
+                    <span class="bar"><i id="clockBar"></i></span>
+                  </div>
+                  <button class="btn next-action" id="nextBtn">Done, next ›</button>
+                  ${idx > 0 ? '<button class="btn ghost previous-action" id="prevBtn">‹ Previous step</button>' : ''}
                 </div>`;
           stageMain.innerHTML = h;
           $("#nextBtn").addEventListener("click", advance);
-          const pb = $("#pauseBtn");
-          pb.addEventListener("click", () => {
+          const tb = $("#timerBtn");
+          tb.addEventListener("click", () => {
+            if (!timerStarted) {
+              timerStarted = true;
+              paused = false;
+              tb.textContent = "Pause";
+              tb.classList.remove("primary");
+              $("#clock").classList.remove("ready");
+              $("#clockLabel").textContent = "Time left";
+              startTick();
+              return;
+            }
             paused = !paused;
-            pb.textContent = paused ? "Resume" : "Pause";
-            pb.classList.toggle("primary", paused);
+            tb.textContent = paused ? "Resume" : "Pause";
+            tb.classList.toggle("primary", paused);
+            $("#clockLabel").textContent = paused ? "Paused" : "Time left";
           });
+          const prev = $("#prevBtn");
+          if (prev) prev.addEventListener("click", goBack);
         }
 
         function renderRest(step) {
@@ -825,10 +850,13 @@
               <div class="bigtime" id="restBig">${fmt(remaining)}</div>
               <p>${step.msg}</p>
               <div class="controls" style="justify-content:center">
+                ${idx > 0 ? '<button class="btn ghost" id="prevBtn">‹ Previous step</button>' : ''}
                 <button class="btn primary" id="nextBtn">Skip rest ›</button>
               </div>
             </div>`;
           $("#nextBtn").addEventListener("click", advance);
+          const prev = $("#prevBtn");
+          if (prev) prev.addEventListener("click", goBack);
         }
 
         function startTick() {
@@ -838,17 +866,35 @@
             updateClock();
             const big = $("#restBig");
             if (big) big.textContent = fmt(remaining);
-            if (remaining <= 30 && plan.steps[idx].type === "work") clock.classList.add("warn");
+            const workClock = $("#clock");
+            if (workClock && remaining <= 30 && plan.steps[idx].type === "work") workClock.classList.add("warn");
             if (remaining <= 0) { chime(); advance(); }
           }, 1000);
         }
 
         function updateClock() {
-          clockTime.textContent = fmt(remaining);
-          clockBar.style.width = (Math.max(0, remaining) / total * 100) + "%";
+          const clockTime = $("#clockTime");
+          const clockBar = $("#clockBar");
+          if (clockTime) clockTime.textContent = fmt(remaining);
+          if (clockBar) clockBar.style.width = (Math.max(0, remaining) / total * 100) + "%";
         }
 
         function advance() { clearTick(); idx += 1; render(); }
+        function goBack() {
+          if (idx <= 0) return;
+          clearTick();
+          if (idx >= plan.steps.length || plan.steps[idx].type === "rest") {
+            idx -= 1;
+          } else {
+            for (let i = idx - 1; i >= 0; i -= 1) {
+              if (plan.steps[i].type === "work") {
+                idx = i;
+                break;
+              }
+            }
+          }
+          render();
+        }
 
         function chime() {
           try {
@@ -872,19 +918,25 @@
           clearTick();
           document.body.classList.remove("resting");
           buildFlow(plan.stages.length, "done"); // all done
+          const finishCopy = plan.finish || {
+            recap: "You moved from a topic, to a sharper question, to one idea, to a single next step. The thinking was yours. Now you can test it against AI, data, or a search if you want to.",
+            question: "What is your one Next Step?"
+          };
           stageMain.innerHTML = `
             <div class="finish">
               <div class="resetword">Done</div>
               <h2>That&rsquo;s a session.</h2>
-              <div class="recap">You moved from a topic, to a sharper question, to one idea, to a single next step. The thinking was yours. Now you can test it against AI, data, or a search if you want to.</div>
-              <p class="nextq"><strong>What is your one Next Step?</strong></p>
+              <div class="recap">${finishCopy.recap}</div>
+              <p class="nextq"><strong>${finishCopy.question}</strong></p>
               <p class="faint" style="text-align:center">Write it where you&rsquo;ll see it. Then go do the smallest version of it.</p>
               <div class="controls" style="justify-content:center">
                 <button class="btn primary lg" id="againBtn">Run another session</button>
+                <button class="btn ghost" id="prevBtn">‹ Previous step</button>
                 <button class="btn" id="backBtn">Back to start</button>
               </div>
             </div>`;
           $("#againBtn").addEventListener("click", () => start(plan.id));
+          $("#prevBtn").addEventListener("click", goBack);
           $("#backBtn").addEventListener("click", reset);
         }
 
@@ -903,19 +955,29 @@
 
         /* ---------- controls ---------- */
         $("#exitBtn").addEventListener("click", () => {
-          if (confirm("Leave this session? Your timer will reset.")) reset();
+          if (!timerStarted || confirm("Back to the session choices? This timer will reset.")) reset();
         });
         const fsBtn = $("#fsBtn");
-        fsBtn.addEventListener("click", () => {
-          if (document.fullscreenElement) { if (document.exitFullscreen) document.exitFullscreen().catch(()=>{}); }
-          else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
-        });
-        document.addEventListener("fullscreenchange", () => {
-          fsBtn.textContent = document.fullscreenElement ? "⛶ Exit full screen" : "⛶ Full screen";
-        });
+        const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
+        if (isIPhone || !document.documentElement.requestFullscreen) {
+          fsBtn.hidden = true;
+        } else {
+          fsBtn.addEventListener("click", () => {
+            if (document.fullscreenElement) {
+              if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+            } else {
+              document.documentElement.requestFullscreen().catch(() => { fsBtn.hidden = true; });
+            }
+          });
+          document.addEventListener("fullscreenchange", () => {
+            fsBtn.textContent = document.fullscreenElement ? "⛶ Exit full screen" : "⛶ Full screen";
+          });
+        }
         document.addEventListener("keydown", (e) => {
           if (session.style.display !== "block") return;
-          if (e.code === "Space") { e.preventDefault(); const p = $("#pauseBtn"); if (p) p.click(); }
+          if (e.target.closest && e.target.closest("button, a, input, textarea, select")) return;
+          if (e.code === "Space") { e.preventDefault(); const t = $("#timerBtn"); if (t) t.click(); }
+          else if (e.code === "ArrowLeft") { const prev = $("#prevBtn"); if (prev) prev.click(); }
           else if (e.code === "ArrowRight" || e.code === "Enter") { const nx = $("#nextBtn"); if (nx) nx.click(); }
         });
       })();
