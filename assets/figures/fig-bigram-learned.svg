@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 270" width="720" height="270" role="img" aria-labelledby="title desc">
+  <title id="title">True and learned bigram probabilities</title>
+  <desc id="desc">Two three by three probability matrices are almost identical. The left matrix is true and the right matrix is learned.</desc>
+  <g font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" fill="#252825">
+    <text x="197" y="25" text-anchor="middle" font-size="15" font-weight="700">True</text>
+    <text x="523" y="25" text-anchor="middle" font-size="15" font-weight="700">Learned</text>
+
+    <g font-size="11" fill="#686e68">
+      <text x="154" y="49" text-anchor="middle">next a</text><text x="206" y="49" text-anchor="middle">next b</text><text x="258" y="49" text-anchor="middle">next _</text>
+      <text x="480" y="49" text-anchor="middle">next a</text><text x="532" y="49" text-anchor="middle">next b</text><text x="584" y="49" text-anchor="middle">next _</text>
+      <text x="111" y="85" text-anchor="middle">a</text><text x="111" y="137" text-anchor="middle">b</text><text x="111" y="189" text-anchor="middle">_</text>
+      <text x="437" y="85" text-anchor="middle">a</text><text x="437" y="137" text-anchor="middle">b</text><text x="437" y="189" text-anchor="middle">_</text>
+    </g>
+
+    <g stroke="#ffffff" stroke-width="2">
+      <rect x="128" y="60" width="52" height="52" fill="#68a9d3"/><rect x="180" y="60" width="52" height="52" fill="#c9e2f2"/><rect x="232" y="60" width="52" height="52" fill="#a7cee7"/>
+      <rect x="128" y="112" width="52" height="52" fill="#e0eef7"/><rect x="180" y="112" width="52" height="52" fill="#2f78ad"/><rect x="232" y="112" width="52" height="52" fill="#e0eef7"/>
+      <rect x="128" y="164" width="52" height="52" fill="#205f91"/><rect x="180" y="164" width="52" height="52" fill="#edf5fa"/><rect x="232" y="164" width="52" height="52" fill="#edf5fa"/>
+
+      <rect x="454" y="60" width="52" height="52" fill="#68a9d3"/><rect x="506" y="60" width="52" height="52" fill="#c9e2f2"/><rect x="558" y="60" width="52" height="52" fill="#a7cee7"/>
+      <rect x="454" y="112" width="52" height="52" fill="#e2eff7"/><rect x="506" y="112" width="52" height="52" fill="#2e77ac"/><rect x="558" y="112" width="52" height="52" fill="#e1eef7"/>
+      <rect x="454" y="164" width="52" height="52" fill="#1e5d8e"/><rect x="506" y="164" width="52" height="52" fill="#eff6fa"/><rect x="558" y="164" width="52" height="52" fill="#eef5fa"/>
+    </g>
+
+    <g font-size="12" text-anchor="middle">
+      <text x="154" y="91" fill="#ffffff">0.500</text><text x="206" y="91">0.200</text><text x="258" y="91">0.300</text>
+      <text x="154" y="143">0.100</text><text x="206" y="143" fill="#ffffff">0.800</text><text x="258" y="143">0.100</text>
+      <text x="154" y="195" fill="#ffffff">0.900</text><text x="206" y="195">0.050</text><text x="258" y="195">0.050</text>
+
+      <text x="480" y="91" fill="#ffffff">0.501</text><text x="532" y="91">0.198</text><text x="584" y="91">0.301</text>
+      <text x="480" y="143">0.096</text><text x="532" y="143" fill="#ffffff">0.805</text><text x="584" y="143">0.099</text>
+      <text x="480" y="195" fill="#ffffff">0.910</text><text x="532" y="195">0.042</text><text x="584" y="195">0.049</text>
+    </g>
+
+    <text x="360" y="250" text-anchor="middle" font-size="12" fill="#686e68">row = current token, column = next token</text>
+  </g>
+</svg>

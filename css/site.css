@@ -108,6 +108,60 @@ code {
   font-size: 0.9em;
 }
 
+pre.code-block {
+  overflow-x: auto;
+  margin: 1.4rem 0 1.75rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #343a36;
+  border-radius: 0.55rem;
+  background: #202421;
+  color: #f3f5f1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+pre.code-block code {
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.code-block .syntax-keyword {
+  color: #c792ea;
+}
+
+.code-block .syntax-string {
+  color: #ecc48d;
+}
+
+.code-block .syntax-number {
+  color: #addb67;
+}
+
+.code-block .syntax-function {
+  color: #82aaff;
+}
+
+.code-block .syntax-name {
+  color: #ffcb6b;
+}
+
+.code-block .syntax-comment {
+  color: #92a097;
+  font-style: italic;
+}
+
+pre.code-output {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
 .equation {
   overflow-x: auto;
   padding-block: 0.5rem;

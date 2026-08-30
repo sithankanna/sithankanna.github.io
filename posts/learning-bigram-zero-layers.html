@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A small PyTorch experiment showing that one embedding table can learn the transition probabilities of a bigram source.">
+    <title>Learning a Bigram Model with Zero Layers</title>
+    <link rel="stylesheet" href="../css/site.css">
+    <script src="../js/mathjax-config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script defer src="../js/syntax-highlight.js"></script>
+    <script defer src="../js/toc.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell">
+        <a class="site-name" href="../index.html">Sithan Kanna</a>
+      </div>
+    </header>
+
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Contents">
+        <nav>
+          <h2>Contents</h2>
+          <a href="#data">1. Make the Data</a>
+          <a href="#pairs">2. Make the Pairs</a>
+          <a href="#model">3. Zero Layers</a>
+          <a href="#train">4. Train</a>
+          <a href="#weights">5. Read the Weights</a>
+        </nav>
+      </aside>
+
+      <article class="post-body">
+        <h1>Learning a Bigram Model with Zero Layers</h1>
+        <p class="post-meta">30 August 2026</p>
+
+        <p>
+          A bigram model looks at one token and predicts the next token.
+        </p>
+        <p>
+          In <a href="why-kv-cache.html">Why KV Cache and Not QKV Cache?</a>, I
+          used a 0-layer Transformer before adding attention. Here I make that
+          model smaller: one weight table, \(\W\).
+        </p>
+        <p>
+          We will generate data from known bigram probabilities. Then we will see
+          if nine learned numbers can recover them.
+        </p>
+
+        <h2 class="section" id="data">Make the Data</h2>
+        <p>
+          Our vocabulary has three tokens: <code>a</code>, <code>b</code>, and
+          <code>_</code>.
+        </p>
+        <p>The true transition matrix is</p>
+        \[
+        \PB_{\text{true}} =
+        \begin{bmatrix}
+        0.50 & 0.20 & 0.30 \\
+        0.10 & 0.80 & 0.10 \\
+        0.90 & 0.05 & 0.05
+        \end{bmatrix}.
+        \]
+        <p>
+          A row is the current token. A column is the next token. For example,
+        </p>
+        \[
+        P(x_{t+1}=\texttt{b}\mid x_t=\texttt{a})=0.20.
+        \]
+
+        <pre class="code-block"><code data-language="python">import torch
+from torch.utils.data import DataLoader, Dataset
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.optim import AdamW
+import matplotlib.pyplot as plt
+
+B = 1_500
+T = 1
+D = 3
+
+def generate_true_data():
+    true_bigrams = {
+        "a": torch.tensor([0.50, 0.20, 0.30]),
+        "b": torch.tensor([0.10, 0.80, 0.10]),
+        "_": torch.tensor([0.90, 0.05, 0.05]),
+    }
+    vocab = list(true_bigrams.keys())
+    n_seq = 100_000
+
+    full_seq = "a"
+    all_tokens = [vocab.index(full_seq[-1])]
+
+    for _ in range(n_seq):
+        last_token = full_seq[-1]
+        sample_arg = torch.multinomial(
+            input=true_bigrams[last_token],
+            num_samples=1,
+        )
+        sample_id = sample_arg.item()
+        all_tokens.append(sample_id)
+        full_seq += vocab[sample_id]
+
+    return full_seq, torch.tensor(all_tokens)</code></pre>
+
+        <p>This makes one long string and 100,000 transitions.</p>
+
+        <h2 class="section" id="pairs">Make the Pairs</h2>
+        <p>
+          I will keep the sequence dimension. For this bigram model, \(T=1\).
+          The input is one token. The target is the token after it.
+        </p>
+        \[
+        \X,\Y \in \{0,1,2\}^{B \times T},
+        \qquad B=1500,\quad T=1.
+        \]
+
+        <pre class="code-block"><code data-language="python">class BigramSequence(Dataset):
+    def __init__(self):
+        full_seq, all_tokens = generate_true_data()
+        self.n_samples = len(all_tokens) - T
+
+        self.X = torch.stack([
+            all_tokens[i : i + T]
+            for i in range(self.n_samples)
+        ])
+        self.Y = torch.stack([
+            all_tokens[i + 1 : i + T + 1]
+            for i in range(self.n_samples)
+        ])
+
+    def __getitem__(self, index):
+        return self.X[index], self.Y[index]
+
+    def __len__(self):
+        return self.n_samples</code></pre>
+
+        <p>
+          Before batching, both tensors have shape \(N \times T\). The data
+          loader changes the first dimension from \(N\) to \(B\).
+        </p>
+
+        <h2 class="section" id="model">Zero Layers</h2>
+        <p>The complete model is one embedding table:</p>
+
+        <pre class="code-block"><code data-language="python">class ZeroLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.W = nn.Embedding(
+            num_embeddings=D,
+            embedding_dim=D,
+        )
+
+    def forward(self, x):
+        return self.W(x)</code></pre>
+
+        <figure class="fig" id="fig-bigram-zero-layer">
+          <img src="../assets/figures/fig-bigram-zero-layer.svg" alt="At every batch and sequence position, the token id selects one row of W. Softmax turns it into next-token probabilities." width="720">
+          <figcaption><span class="fig-label">Figure 1.</span> At every \((m,t)\), one token selects one row of \(\W\).</figcaption>
+        </figure>
+
+        <p>
+          <code>nn.Embedding</code> keeps the \(B\) and \(T\) dimensions. It adds
+          one dimension of size \(D\):
+        </p>
+        \[
+        \X \in \{0,1,2\}^{B \times T}
+        \quad \xrightarrow{\W} \quad
+        \Z \in \mathbb{R}^{B \times T \times D}.
+        \]
+        <p>For batch item \(m\) and position \(t\),</p>
+        \[
+        \Z_{m,t,:}=\W_{\X_{m,t},:},
+        \qquad
+        \hat{\Y}_{m,t,:}=\textsf{softmax}(\Z_{m,t,:}).
+        \]
+        <p>
+          Here \(T=1\). If \(T\) is larger, the same lookup runs at every
+          position. There is still no attention, so the positions do not mix.
+        </p>
+
+        <h2 class="section" id="train">Train</h2>
+        <p>One pass over the data is enough for this example.</p>
+
+        <pre class="code-block"><code data-language="python">model = ZeroLayer()
+data = BigramSequence()
+loader = DataLoader(data, batch_size=B)
+optimizer = AdamW(model.parameters(), lr=0.1)
+
+losses = []
+
+for x, y in loader:
+    optimizer.zero_grad()
+
+    logits = model(x)                 # [B, T, D]
+    loss = F.cross_entropy(
+        logits.transpose(1, 2),       # [B, D, T]
+        y,                            # [B, T]
+    )
+
+    loss.backward()
+    optimizer.step()
+    losses.append(loss.item())</code></pre>
+
+        <p>
+          Cross entropy applies softmax internally. So the model returns raw
+          logits during training. PyTorch expects the class dimension second:
+        </p>
+        \[
+        B \times T \times D
+        \quad \xrightarrow{\textsf{transpose}(1,2)} \quad
+        B \times D \times T.
+        \]
+
+        <h2 class="section" id="weights">Read the Weights</h2>
+        <p>Apply softmax to each row of \(\W\):</p>
+
+        <pre class="code-block"><code data-language="python">with torch.no_grad():
+    learned_bigrams = model.W.weight.softmax(dim=1)
+    print(learned_bigrams)
+
+plt.plot(losses)
+plt.xlabel("update")
+plt.ylabel("cross entropy")
+plt.show()</code></pre>
+
+        <p>One run gives:</p>
+        <pre class="code-block code-output"><code>tensor([[0.5012, 0.1975, 0.3013],
+        [0.0959, 0.8052, 0.0988],
+        [0.9098, 0.0416, 0.0486]])</code></pre>
+
+        <figure class="fig" id="fig-bigram-learned">
+          <img src="../assets/figures/fig-bigram-learned.svg" alt="The true and learned three by three transition matrices have nearly the same values." width="720">
+          <figcaption><span class="fig-label">Figure 2.</span> The true and learned bigram probabilities.</figcaption>
+        </figure>
+      </article>
+    </main>
+  </body>
+</html>
