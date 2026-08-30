@@ -75,10 +75,6 @@ import torch.nn.functional as F
 from torch.optim import AdamW
 import matplotlib.pyplot as plt
 
-B = 1_500
-T = 1
-D = 3
-
 def generate_true_data():
     true_bigrams = {
         "a": torch.tensor([0.50, 0.20, 0.30]),
@@ -106,39 +102,23 @@ def generate_true_data():
         <p>This makes one long string and 100,000 transitions.</p>
 
         <h2 class="section" id="pairs">Make the Pairs</h2>
-        <p>
-          I will keep the sequence dimension. For this bigram model, \(T=1\).
-          The input is one token. The target is the token after it.
-        </p>
+        <p>The input is one token. The target is the token after it:</p>
         \[
-        \X,\Y \in \{0,1,2\}^{B \times T},
-        \qquad B=1500,\quad T=1.
+        \X = [x_0,x_1,\ldots,x_{T-1}], \qquad
+        \Y = [x_1,x_2,\ldots,x_T].
         \]
 
         <pre class="code-block"><code data-language="python">class BigramSequence(Dataset):
     def __init__(self):
         full_seq, all_tokens = generate_true_data()
-        self.n_samples = len(all_tokens) - T
-
-        self.X = torch.stack([
-            all_tokens[i : i + T]
-            for i in range(self.n_samples)
-        ])
-        self.Y = torch.stack([
-            all_tokens[i + 1 : i + T + 1]
-            for i in range(self.n_samples)
-        ])
+        self.X = all_tokens[:-1]
+        self.Y = all_tokens[1:]
 
     def __getitem__(self, index):
         return self.X[index], self.Y[index]
 
     def __len__(self):
-        return self.n_samples</code></pre>
-
-        <p>
-          Before batching, both tensors have shape \(N \times T\). The data
-          loader changes the first dimension from \(N\) to \(B\).
-        </p>
+        return len(self.X)</code></pre>
 
         <h2 class="section" id="model">Zero Layers</h2>
         <p>The complete model is one embedding table:</p>
@@ -147,44 +127,37 @@ def generate_true_data():
     def __init__(self):
         super().__init__()
         self.W = nn.Embedding(
-            num_embeddings=D,
-            embedding_dim=D,
+            num_embeddings=3,
+            embedding_dim=3,
         )
 
     def forward(self, x):
         return self.W(x)</code></pre>
 
         <figure class="fig" id="fig-bigram-zero-layer">
-          <img src="../assets/figures/fig-bigram-zero-layer.svg" alt="At every batch and sequence position, the token id selects one row of W. Softmax turns it into next-token probabilities." width="720">
-          <figcaption><span class="fig-label">Figure 1.</span> At every \((m,t)\), one token selects one row of \(\W\).</figcaption>
+          <img src="../assets/figures/fig-bigram-zero-layer.svg" alt="The current token selects one row of W. Softmax turns that row into next-token probabilities." width="720">
+          <figcaption><span class="fig-label">Figure 1.</span> One token selects one row of \(\W\).</figcaption>
         </figure>
 
         <p>
-          <code>nn.Embedding</code> keeps the \(B\) and \(T\) dimensions. It adds
-          one dimension of size \(D\):
+          <code>nn.Embedding</code> is a row lookup. If the current token has id
+          \(i\), the model returns
         </p>
         \[
-        \X \in \{0,1,2\}^{B \times T}
-        \quad \xrightarrow{\W} \quad
-        \Z \in \mathbb{R}^{B \times T \times D}.
+        \zs_t = \W_{i,:}.
         \]
-        <p>For batch item \(m\) and position \(t\),</p>
+        <p>These three numbers are logits. Softmax makes them probabilities:</p>
         \[
-        \Z_{m,t,:}=\W_{\X_{m,t},:},
-        \qquad
-        \hat{\Y}_{m,t,:}=\textsf{softmax}(\Z_{m,t,:}).
+        \hat{\ps}_t = \textsf{softmax}(\W_{i,:}).
         \]
-        <p>
-          Here \(T=1\). If \(T\) is larger, the same lookup runs at every
-          position. There is still no attention, so the positions do not mix.
-        </p>
+        <p>There is no hidden layer. There is no attention.</p>
 
         <h2 class="section" id="train">Train</h2>
         <p>One pass over the data is enough for this example.</p>
 
         <pre class="code-block"><code data-language="python">model = ZeroLayer()
 data = BigramSequence()
-loader = DataLoader(data, batch_size=B)
+loader = DataLoader(data, batch_size=1_500)
 optimizer = AdamW(model.parameters(), lr=0.1)
 
 losses = []
@@ -192,11 +165,8 @@ losses = []
 for x, y in loader:
     optimizer.zero_grad()
 
-    logits = model(x)                 # [B, T, D]
-    loss = F.cross_entropy(
-        logits.transpose(1, 2),       # [B, D, T]
-        y,                            # [B, T]
-    )
+    logits = model(x)                 # [batch, 3]
+    loss = F.cross_entropy(logits, y)
 
     loss.backward()
     optimizer.step()
@@ -204,12 +174,11 @@ for x, y in loader:
 
         <p>
           Cross entropy applies softmax internally. So the model returns raw
-          logits during training. PyTorch expects the class dimension second:
+          logits during training.
         </p>
         \[
-        B \times T \times D
-        \quad \xrightarrow{\textsf{transpose}(1,2)} \quad
-        B \times D \times T.
+        \mathcal{L} = -\frac{1}{T}\sum_{t=0}^{T-1}
+        \log \hat{P}(x_{t+1}\mid x_t).
         \]
 
         <h2 class="section" id="weights">Read the Weights</h2>

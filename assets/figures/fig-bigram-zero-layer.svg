@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" width="720" height="220" role="img" aria-labelledby="title desc">
   <title id="title">A zero-layer bigram model</title>
-  <desc id="desc">At one batch and sequence position, token b selects row b from the D by D weight matrix. The full output has shape B by T by D.</desc>
+  <desc id="desc">The current token b selects row b from a three by three weight matrix. Softmax turns that row into next-token probabilities.</desc>
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
       <path d="M0,0 L8,4 L0,8 Z" fill="#252825"/>
@@ -8,13 +8,12 @@
   </defs>
 
   <g font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" fill="#252825">
-    <text x="68" y="48" text-anchor="middle" font-size="12" fill="#686e68">token ids</text>
-    <rect x="8" y="64" width="120" height="58" rx="6" fill="#ffffff" stroke="#9aa09a"/>
-    <text x="68" y="99" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="17" font-style="italic">X[m,t] = b</text>
-    <text x="68" y="143" text-anchor="middle" font-size="11" fill="#686e68">B x T, with T = 1</text>
+    <text x="62" y="48" text-anchor="middle" font-size="12" fill="#686e68">current token</text>
+    <rect x="16" y="64" width="92" height="58" rx="6" fill="#ffffff" stroke="#9aa09a"/>
+    <text x="62" y="99" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-style="italic">x<tspan dy="4" font-size="12">t</tspan><tspan dy="-4" font-size="21"> = b</tspan></text>
 
-    <line x1="128" y1="93" x2="172" y2="93" stroke="#252825" stroke-width="1.2" marker-end="url(#arrow)"/>
-    <text x="150" y="80" text-anchor="middle" font-size="11" fill="#686e68">lookup</text>
+    <line x1="108" y1="93" x2="172" y2="93" stroke="#252825" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <text x="140" y="80" text-anchor="middle" font-size="11" fill="#686e68">select row</text>
 
     <text x="284" y="24" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="17" font-style="italic">W</text>
     <text x="223" y="47" text-anchor="middle" font-size="11" fill="#686e68">next a</text>
@@ -39,7 +38,7 @@
     <text x="227" y="145" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-style="italic">w<tspan dy="3" font-size="9">_a</tspan></text>
     <text x="284" y="145" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-style="italic">w<tspan dy="3" font-size="9">_b</tspan></text>
     <text x="341" y="145" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-style="italic">w<tspan dy="3" font-size="9">__</tspan></text>
-    <text x="284" y="181" text-anchor="middle" font-size="11" fill="#686e68">W: D x D</text>
+    <text x="284" y="181" text-anchor="middle" font-size="11" fill="#686e68">3 tokens x 3 logits</text>
 
     <line x1="370" y1="106" x2="427" y2="106" stroke="#252825" stroke-width="1.2" marker-end="url(#arrow)"/>
     <text x="399" y="93" text-anchor="middle" font-size="11" fill="#686e68">row b</text>
@@ -53,6 +52,5 @@
     <text x="644" y="91" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="14">P(a | b)</text>
     <text x="644" y="111" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="14">P(b | b)</text>
     <text x="644" y="131" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="14">P(_ | b)</text>
-    <text x="644" y="169" text-anchor="middle" font-size="11" fill="#686e68">B x T x D</text>
   </g>
 </svg>
