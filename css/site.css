@@ -468,6 +468,8 @@ figure.fig figcaption .fig-label {
 .posts time {
   color: var(--muted);
   font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.025em;
   text-align: right;
   white-space: nowrap;
 }
