@@ -404,6 +404,14 @@ figure.fig figcaption .fig-label {
   padding-block: clamp(1.25rem, 3vw, 2.5rem);
 }
 
+.home a {
+  text-decoration: none;
+}
+
+.home a:hover {
+  color: var(--text);
+}
+
 .home-section {
   margin-top: 2.5rem;
 }
