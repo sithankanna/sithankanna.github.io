@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 390" role="img" aria-labelledby="title desc">
+<title id="title">Hard-label and distilled bigram training losses</title>
+<desc id="desc">The hard-label loss fluctuates more than the soft-label loss over 67 minibatch updates.</desc>
+<defs>
+<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+<path d="M0,0 L0,6 L7,3 z" fill="#686e68"/>
+</marker>
+</defs>
+<rect width="720" height="390" rx="12" fill="#ffffff"/>
+<g font-family="ui-sans-serif,system-ui,sans-serif">
+<line x1="70" y1="303.17" x2="695" y2="303.17" stroke="#d9ddd8"/><text x="58" y="307.17" text-anchor="end" font-size="12" fill="#686e68">0.6</text><line x1="70" y1="241.08" x2="695" y2="241.08" stroke="#d9ddd8"/><text x="58" y="245.08" text-anchor="end" font-size="12" fill="#686e68">0.7</text><line x1="70" y1="179.00" x2="695" y2="179.00" stroke="#d9ddd8"/><text x="58" y="183.00" text-anchor="end" font-size="12" fill="#686e68">0.8</text><line x1="70" y1="116.92" x2="695" y2="116.92" stroke="#d9ddd8"/><text x="58" y="120.92" text-anchor="end" font-size="12" fill="#686e68">0.9</text><line x1="70" y1="54.83" x2="695" y2="54.83" stroke="#d9ddd8"/><text x="58" y="58.83" text-anchor="end" font-size="12" fill="#686e68">1.0</text><text x="70.00" y="353" text-anchor="middle" font-size="12" fill="#686e68">0</text><text x="259.39" y="353" text-anchor="middle" font-size="12" fill="#686e68">20</text><text x="448.79" y="353" text-anchor="middle" font-size="12" fill="#686e68">40</text><text x="638.18" y="353" text-anchor="middle" font-size="12" fill="#686e68">60</text>
+<line x1="70" y1="30" x2="70" y2="328" stroke="#252825"/>
+<line x1="70" y1="328" x2="695" y2="328" stroke="#252825"/>
+<line x1="70" y1="303.99" x2="695" y2="303.99" stroke="#686e68" stroke-dasharray="5 5"/>
+<text x="574" y="268" text-anchor="middle" font-size="11" fill="#686e68">optimal loss = 0.599</text>
+<path d="M574,274 L574,297" fill="none" stroke="#686e68" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+<path d="M70.00,52.81 L79.47,97.61 L88.94,147.15 L98.41,188.74 L107.88,216.99 L117.35,243.17 L126.82,263.28 L136.29,278.70 L145.76,284.90 L155.23,286.19 L164.70,295.71 L174.17,289.00 L183.64,301.04 L193.11,307.16 L202.58,283.09 L212.05,293.48 L221.52,300.14 L230.98,295.42 L240.45,285.10 L249.92,290.25 L259.39,295.04 L268.86,278.63 L278.33,299.72 L287.80,302.11 L297.27,307.12 L306.74,294.22 L316.21,288.16 L325.68,302.19 L335.15,296.05 L344.62,297.05 L354.09,304.48 L363.56,294.37 L373.03,296.04 L382.50,299.98 L391.97,296.64 L401.44,303.10 L410.91,289.01 L420.38,303.56 L429.85,303.29 L439.32,305.50 L448.79,300.88 L458.26,305.96 L467.73,311.99 L477.20,310.29 L486.67,292.73 L496.14,298.49 L505.61,309.53 L515.08,298.10 L524.55,296.39 L534.02,309.62 L543.48,298.70 L552.95,299.36 L562.42,294.70 L571.89,307.64 L581.36,301.51 L590.83,299.68 L600.30,297.71 L609.77,313.93 L619.24,301.64 L628.71,308.20 L638.18,309.58 L647.65,303.60 L657.12,305.36 L666.59,309.43 L676.06,313.91 L685.53,307.18 L695.00,300.21" fill="none" stroke="#d65a4a" stroke-width="2"/>
+<path d="M70.00,52.44 L79.47,104.43 L88.94,149.51 L98.41,186.49 L107.88,217.73 L117.35,243.17 L126.82,262.75 L136.29,277.30 L145.76,285.93 L155.23,291.42 L164.70,293.23 L174.17,295.27 L183.64,296.43 L193.11,293.11 L202.58,293.30 L212.05,296.42 L221.52,296.42 L230.98,292.16 L240.45,293.60 L249.92,294.98 L259.39,296.93 L268.86,294.90 L278.33,295.36 L287.80,296.11 L297.27,296.70 L306.74,295.27 L316.21,297.04 L325.68,295.80 L335.15,295.31 L344.62,298.02 L354.09,294.55 L363.56,296.46 L373.03,300.33 L382.50,299.35 L391.97,303.71 L401.44,301.31 L410.91,301.82 L420.38,300.87 L429.85,304.82 L439.32,303.37 L448.79,301.59 L458.26,304.38 L467.73,302.84 L477.20,304.35 L486.67,304.06 L496.14,303.85 L505.61,304.02 L515.08,302.62 L524.55,306.68 L534.02,304.80 L543.48,303.16 L552.95,300.85 L562.42,303.57 L571.89,303.36 L581.36,302.08 L590.83,303.18 L600.30,303.36 L609.77,306.06 L619.24,303.57 L628.71,304.04 L638.18,301.55 L647.65,303.50 L657.12,303.12 L666.59,304.64 L676.06,306.08 L685.53,306.45 L695.00,302.19" fill="none" stroke="#3f8fca" stroke-width="2.5"/>
+<text x="360.0" y="372" text-anchor="middle" font-size="13" fill="#252825">minibatch update</text>
+<text x="18" y="195.0" text-anchor="middle" font-size="13" fill="#252825" transform="rotate(-90 18 195.0)">cross-entropy loss</text>
+<g transform="translate(92 48)" font-size="12">
+<line x1="0" y1="0" x2="25" y2="0" stroke="#d65a4a" stroke-width="2"/><text x="33" y="4" fill="#252825">hard labels</text>
+<line x1="125" y1="0" x2="150" y2="0" stroke="#3f8fca" stroke-width="2.5"/><text x="158" y="4" fill="#252825">soft labels</text>
+</g>
+</g>
+</svg>
