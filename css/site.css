@@ -401,11 +401,15 @@ figure.fig figcaption .fig-label {
 /* ---------- Blog landing (post listing) ---------- */
 .home {
   max-width: 47rem;
-  padding-block: clamp(2rem, 6vw, 5rem);
+  padding-block: clamp(1.25rem, 3vw, 2.5rem);
 }
 
 .home-section {
   margin-top: 2.5rem;
+}
+
+.primary-notes {
+  margin-top: 0;
 }
 
 .home-section h2 {
@@ -441,7 +445,11 @@ figure.fig figcaption .fig-label {
 }
 
 .posts li {
-  padding-block: 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: baseline;
+  padding-block: 0.8rem;
   border-bottom: 1px solid var(--line);
 }
 
@@ -450,14 +458,15 @@ figure.fig figcaption .fig-label {
 }
 
 .posts a {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
 }
 
 .posts time {
-  display: block;
-  margin-top: 0.3rem;
   color: var(--muted);
   font-size: 0.85rem;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .posts p {
