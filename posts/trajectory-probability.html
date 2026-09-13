@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Deriving the probability of a trajectory from the chain rule, then applying it to token generation.">
+    <title>Probability of an LLM Trajectory: Starting from the Chain Rule</title>
+    <link rel="stylesheet" href="../css/site.css">
+    <script src="../js/mathjax-config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script defer src="../js/toc.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell">
+        <a class="site-name" href="../index.html">Sithan Kanna</a>
+      </div>
+    </header>
+
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Contents">
+        <nav>
+          <h2>Contents</h2>
+          <a href="#chain-rule">1. Start with the Chain Rule</a>
+          <a href="#initial-state">2. The Initial State</a>
+          <a href="#environment">3. The Environment</a>
+          <a href="#policy">4. The Policy</a>
+          <a href="#putting-it-together">5. Putting It Together</a>
+          <a href="#token-generation">6. Token Generation</a>
+        </nav>
+      </aside>
+
+      <article class="post-body">
+        <h1>Probability of an LLM Trajectory: Starting from the Chain Rule</h1>
+        <p class="post-meta">13 September 2026</p>
+
+        <p>
+          In the <a href="llm-token-generation.html#reinforcement-learning">REINFORCE
+          article</a>, we jumped into the gradient. But I wanted to take a step
+          back and start by factorizing the probability of a trajectory from
+          first principles.
+        </p>
+
+        <p>Let us consider a short trajectory:</p>
+
+        \[
+        \tau=(s_0,a_0,s_1,a_1,s_2).
+        \]
+
+        <p>
+          We start in state \(s_0\), take action \(a_0\), move to state \(s_1\),
+          take action \(a_1\), and arrive at \(s_2\).
+        </p>
+
+        <p>
+          What is the probability of this entire trajectory under a policy with
+          parameters \(\theta\)?
+        </p>
+
+        <p>
+          For people coming from supervised learning, think of the policy as a
+          model with parameters \(\theta\). A policy gives a probability for each
+          action it can take. In token generation, the actions are the possible
+          next tokens, so this is the same as the model giving a probability for
+          each possible next-token class.
+        </p>
+
+        <h2 class="section" id="chain-rule">Start with the Chain Rule</h2>
+
+        <p>
+          We can begin with the chain rule. For three random variables, the chain
+          rule says
+        </p>
+
+        \[
+        p(x,y,z)=p(x)p(y\mid x)p(z\mid x,y).
+        \]
+
+        <p>Applying the same rule to our trajectory gives</p>
+
+        \[
+        \begin{aligned}
+        p(\tau\mid\theta)
+        ={}&amp;p(s_0,a_0,s_1,a_1,s_2\mid\theta)\\
+        ={}&amp;p(s_0\mid\theta)\\
+        &amp;\times p(a_0\mid s_0,\theta)\\
+        &amp;\times p(s_1\mid s_0,a_0,\theta)\\
+        &amp;\times p(a_1\mid s_0,a_0,s_1,\theta)\\
+        &amp;\times p(s_2\mid s_0,a_0,s_1,a_1,\theta).
+        \end{aligned}
+        \]
+
+        <p>
+          So far, we have only used the chain rule. We have not made any
+          assumptions about the policy or the environment.
+        </p>
+
+        <h2 class="section" id="initial-state">The Initial State</h2>
+
+        <p>
+          The policy, i.e. the model, does not choose the initial state. The
+          initial state is sampled from an initial state distribution. We assume
+          this distribution does not depend on the policy parameters, so
+        </p>
+
+        \[
+        p(s_0\mid\theta)=p(s_0).
+        \]
+
+        <p>
+          For a language model, \(s_0\) is the initial prompt. The prompt is given
+          to the model before generation begins.
+        </p>
+
+        <h2 class="section" id="environment">The Environment</h2>
+
+        <p>
+          The next state is produced by the environment after the policy chooses
+          an action. We assume that the environment is not parameterized by
+          \(\theta\). Therefore,
+        </p>
+
+        \[
+        p(s_1\mid s_0,a_0,\theta)=p(s_1\mid s_0,a_0),
+        \]
+
+        <p>and</p>
+
+        \[
+        p(s_2\mid s_0,a_0,s_1,a_1,\theta)
+        =p(s_2\mid s_0,a_0,s_1,a_1).
+        \]
+
+        <p>
+          This does not mean that the policy has no influence on the states we
+          visit. The policy chooses the actions, and those actions affect the next
+          states. It only means that once the state and action are given, the
+          environment uses the same transition rule for every value of
+          \(\theta\).
+        </p>
+
+        <p>
+          We now use the Markov assumption. Given the current state and action,
+          the environment does not need the earlier states and actions to produce
+          the next state. In our example,
+        </p>
+
+        \[
+        p(s_2\mid s_0,a_0,s_1,a_1)=p(s_2\mid s_1,a_1).
+        \]
+
+        <p>At an arbitrary time \(t\), this is</p>
+
+        \[
+        p(s_{t+1}\mid s_0,a_0,\ldots,s_t,a_t)
+        =p(s_{t+1}\mid s_t,a_t).
+        \]
+
+        <p>
+          For this equality to hold, the state \(s_t\) must contain the
+          information from the past that is needed to determine the distribution
+          of the next state.
+        </p>
+
+        <h2 class="section" id="policy">The Policy</h2>
+
+        <p>
+          The actions are generated by the policy. Instead of writing the action
+          probability as \(p(a_t\mid s_t,\theta)\), we define the policy notation
+        </p>
+
+        \[
+        p(a_t\mid s_t,\theta)
+        \overset{\mathrm{def}}{=}
+        \pi_\theta(a_t\mid s_t).
+        \]
+
+        <p>
+          This is just notation, but it helps us distinguish the probabilities
+          produced by the policy from the probabilities produced by the
+          environment.
+        </p>
+
+        <p>
+          We also use the Markov assumption for the policy. If the current state
+          contains the relevant history, then
+        </p>
+
+        \[
+        p(a_t\mid s_0,a_0,\ldots,s_t,\theta)
+        =p(a_t\mid s_t,\theta)
+        =\pi_\theta(a_t\mid s_t).
+        \]
+
+        <p>For the two actions in our trajectory, this gives</p>
+
+        \[
+        p(a_0\mid s_0,\theta)=\pi_\theta(a_0\mid s_0),
+        \]
+
+        <p>and</p>
+
+        \[
+        p(a_1\mid s_0,a_0,s_1,\theta)=\pi_\theta(a_1\mid s_1).
+        \]
+
+        <h2 class="section" id="putting-it-together">Putting It Together</h2>
+
+        <p>
+          We can now substitute these assumptions into the chain rule
+          factorization:
+        </p>
+
+        \[
+        \begin{aligned}
+        p(\tau\mid\theta)
+        ={}&amp;p(s_0)\,
+        \pi_\theta(a_0\mid s_0)\,
+        p(s_1\mid s_0,a_0)\\
+        &amp;\times\pi_\theta(a_1\mid s_1)\,
+        p(s_2\mid s_1,a_1).
+        \end{aligned}
+        \]
+
+        <p>
+          At each time step, the policy chooses an action and the environment
+          produces the next state. The probability contributed by time step
+          \(t\) is therefore
+        </p>
+
+        \[
+        \pi_\theta(a_t\mid s_t)\,
+        p(s_{t+1}\mid s_t,a_t).
+        \]
+
+        <p>
+          A trajectory with \(T\) actions starts at \(s_0\) and ends at \(s_T\):
+        </p>
+
+        \[
+        \tau=(s_0,a_0,s_1,a_1,\ldots,s_{T-1},a_{T-1},s_T).
+        \]
+
+        <p>Its probability is</p>
+
+        \[
+        p(\tau\mid\theta)
+        =p(s_0)
+        \prod_{t=0}^{T-1}
+        \pi_\theta(a_t\mid s_t)
+        p(s_{t+1}\mid s_t,a_t).
+        \]
+
+        <h2 class="section" id="token-generation">Token Generation</h2>
+
+        <p>Now let us apply this factorization to a language model.</p>
+
+        <p>
+          Suppose the initial prompt is \(x_{1:n}=(x_1,\ldots,x_n)\). The initial
+          state is
+        </p>
+
+        \[
+        s_0=(x_1,\ldots,x_n).
+        \]
+
+        <p>
+          The first action \(a_0\) is the first token sampled from the model. Once
+          it is generated, we append it to the prompt:
+        </p>
+
+        \[
+        s_1=(x_1,\ldots,x_n,a_0).
+        \]
+
+        <p>After the model generates \(a_1\),</p>
+
+        \[
+        s_2=(x_1,\ldots,x_n,a_0,a_1).
+        \]
+
+        <p>At time \(t\), the state is</p>
+
+        \[
+        s_t=(x_1,\ldots,x_n,a_0,\ldots,a_{t-1}),
+        \]
+
+        <p>and the next state is obtained by appending the chosen token:</p>
+
+        \[
+        s_{t+1}=\operatorname{append}(s_t,a_t).
+        \]
+
+        <p>
+          Once \(s_t\) and \(a_t\) are known, there is only one possible value of
+          \(s_{t+1}\). By definition, \(s_{t+1}=(s_t,a_t)\). We can therefore
+          read the transition probability as
+        </p>
+
+        \[
+        p(s_{t+1}\mid s_t,a_t)
+        =p(s_{t+1}\mid s_{t+1})
+        =1.
+        \]
+
+        <p>
+          Every environment transition term is equal to \(1\) for a valid token
+          trajectory. For our short example, the trajectory probability becomes
+        </p>
+
+        \[
+        p(\tau\mid\theta)
+        =p(s_0)\,
+        \pi_\theta(a_0\mid s_0)\,
+        \pi_\theta(a_1\mid s_1).
+        \]
+
+        <p>For \(T\) generated tokens,</p>
+
+        \[
+        p(\tau\mid\theta)
+        =p(s_0)
+        \prod_{t=0}^{T-1}\pi_\theta(a_t\mid s_t).
+        \]
+
+        <p>
+          Usually, the prompt is already given. We condition on \(s_0\), so we
+          only need the probability of the generated tokens:
+        </p>
+
+        \[
+        p(a_0,\ldots,a_{T-1}\mid s_0,\theta)
+        =\prod_{t=0}^{T-1}\pi_\theta(a_t\mid s_t).
+        \]
+
+        <p>Writing out the contents of each state gives</p>
+
+        \[
+        p(a_0,\ldots,a_{T-1}\mid x_{1:n},\theta)
+        =\prod_{t=0}^{T-1}
+        \pi_\theta(a_t\mid x_{1:n},a_0,\ldots,a_{t-1}).
+        \]
+
+        <p>
+          This is the trajectory probability used in the REINFORCE article. The
+          policy gradient is derived there. Here, I wanted to derive the
+          factorization itself and explain why the environment terms become
+          \(1\) for token generation.
+        </p>
+      </article>
+    </main>
+  </body>
+</html>
