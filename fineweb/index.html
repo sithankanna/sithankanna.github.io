@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Browse the tokenized FineWeb shards that OpenAI's Parameter Golf trains on, one document at a time, with the Python that decodes them.">
+    <title>FineWeb Shard Viewer</title>
+    <style>
+      :root {
+        --bg: #f7f7f4;
+        --surface: #ffffff;
+        --text: #252825;
+        --muted: #686e68;
+        --line: #d9ddd8;
+        --accent: #3f8fca;
+        --accent-soft: #e8f3fb;
+        --code: #f0f2ef;
+        --bos: #c2410c;
+        --bos-soft: #fdebdd;
+        --op: #7c3aed;
+        --op-soft: #efe7fd;
+        --byte-soft: #f3f0e6;
+        --t0: #e6f0f9; --t1: #eef6e6; --t2: #fbf0e2; --t3: #f3e9f6; --t4: #e5f4f1; --t5: #f9e7ea;
+        --seg0: #7fb2dc; --seg1: #9cc98a; --seg2: #e9b77a; --seg3: #b99bd0; --seg4: #7ec7b8; --seg5: #e39aa6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #161816; --surface: #1e211e; --text: #e4e7e3; --muted: #9aa19a; --line: #343934;
+          --accent: #6cb0e4; --accent-soft: #1d2e3b; --code: #232723;
+          --bos: #fb923c; --bos-soft: #3b2415; --op: #b794f6; --op-soft: #2c2240; --byte-soft: #2c2a22;
+          --t0: #1f2c38; --t1: #243020; --t2: #362b1d; --t3: #2f2436; --t4: #1c302c; --t5: #37232a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font: 16px/1.6 Georgia, "Times New Roman", serif;
+      }
+      code, pre, .mono, select, input, button { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      a { color: var(--accent); }
+      header.site { border-bottom: 1px solid var(--line); background: var(--surface); }
+      .shell { width: min(100% - 32px, 72rem); margin-inline: auto; }
+      header.site .shell { display: flex; gap: 1rem; align-items: baseline; padding-block: 0.9rem; flex-wrap: wrap; }
+      header.site a.home { color: var(--text); font-weight: 700; text-decoration: none; }
+      h1 { font-size: 1.6rem; margin: 1.6rem 0 0.3rem; }
+      .lede { color: var(--muted); margin: 0 0 1.2rem; max-width: 46rem; }
+      .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+      .controls { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: end; }
+      .controls label { max-width: 100%; min-width: 0; display: flex; flex-direction: column; font-size: 0.8rem; color: var(--muted); gap: 0.2rem; }
+      select, input, button {
+        font-size: 0.85rem; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: 6px;
+        background: var(--surface); color: var(--text); min-height: 2.1rem;
+      }
+      select { max-width: 100%; text-overflow: ellipsis; }
+      input[type=number] { width: 7rem; }
+      button { cursor: pointer; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .status { font-size: 0.85rem; color: var(--muted); margin-top: 0.6rem; min-height: 1.3em; }
+      .status.error { color: #b91c1c; }
+
+      /* pipeline */
+      .steps { counter-reset: step; display: grid; gap: 0.5rem; }
+      .step { min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem 0.75rem; background: var(--bg); }
+      .step > summary { cursor: pointer; list-style: none; display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
+      .step > summary::-webkit-details-marker { display: none; }
+      .step > summary::before {
+        counter-increment: step; content: counter(step);
+        display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%;
+        background: var(--line); color: var(--text); font: 700 0.75rem ui-monospace, monospace; flex: none;
+      }
+      .step.done > summary::before { background: var(--accent); color: #fff; }
+      .step .title { font-weight: 700; }
+      .step .result { color: var(--muted); font-size: 0.85rem; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+      .step .why { font-size: 0.92rem; margin: 0.5rem 0; }
+      pre.py {
+        background: var(--code); border-radius: 6px; padding: 0.75rem; overflow-x: auto;
+        font-size: 0.78rem; line-height: 1.45; margin: 0.4rem 0 0.2rem;
+      }
+      .py .kw { color: #a626a4; } .py .str { color: #50a14f; } .py .com { color: #8a918a; font-style: italic; } .py .num { color: #b76b01; }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .py .kw { color: #d49cf0; } :root:not([data-theme="light"]) .py .str { color: #98c379; } :root:not([data-theme="light"]) .py .num { color: #e5c07b; } }
+
+      /* navigator */
+      .nav { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+      .nav .spacer { flex: 1; }
+      .kbd { font-size: 0.75rem; color: var(--muted); }
+      .doc-meta { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; font-size: 0.85rem; color: var(--muted); margin: 0.8rem 0 0.4rem; font-family: ui-monospace, monospace; }
+      .doc-meta b { color: var(--text); font-weight: 600; }
+      .flag { color: var(--bos); }
+      .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--line); margin-top: 0.5rem; flex-wrap: wrap; }
+      .tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); padding: 0.4rem 0.7rem; }
+      .tabs button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
+      .doc-text { white-space: pre-wrap; overflow-wrap: anywhere; padding: 0.8rem 0.2rem; max-height: 60vh; overflow-y: auto; }
+      .toks { display: flex; flex-wrap: wrap; gap: 3px; padding: 0.8rem 0; max-height: 60vh; overflow-y: auto; }
+      .tok {
+        font: 0.78rem/1.3 ui-monospace, monospace; padding: 1px 4px; border-radius: 3px; white-space: pre;
+        background: var(--t0); border: 1px solid transparent;
+      }
+      .tok:nth-child(6n+1) { background: var(--t1); } .tok:nth-child(6n+2) { background: var(--t2); }
+      .tok:nth-child(6n+3) { background: var(--t3); } .tok:nth-child(6n+4) { background: var(--t4); } .tok:nth-child(6n+5) { background: var(--t5); }
+      .tok .sp { color: var(--muted); }
+      .tok.bos { background: var(--bos-soft) !important; color: var(--bos); border-color: var(--bos); font-weight: 700; }
+      .tok.op { background: var(--op-soft) !important; color: var(--op); border-color: var(--op); }
+      .tok.byte { background: var(--byte-soft) !important; color: var(--muted); }
+      .tok.nl { color: var(--muted); }
+      .tok.prev { opacity: 0.55; }
+      .toks.ids .tok { background: none !important; border-color: var(--line); }
+      .more { font-size: 0.85rem; color: var(--muted); padding: 0.3rem 0; }
+      .opmark { color: var(--op); background: var(--op-soft); border-radius: 3px; font: 700 0.7em ui-monospace, monospace; padding: 0 2px; margin-right: 1px; vertical-align: 0.1em; }
+
+      /* boundary + window */
+      h2 { font-size: 1.1rem; margin: 0 0 0.3rem; }
+      .sub { font-size: 0.9rem; color: var(--muted); margin: 0 0 0.6rem; }
+      .boundary .toks { max-height: none; }
+      .window { display: flex; height: 2.2rem; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); margin: 0.4rem 0; }
+      .window .seg { position: relative; min-width: 1px; border-left: 2px solid var(--bos); display: flex; align-items: center; justify-content: center; font: 0.7rem ui-monospace, monospace; color: #1b1b1b; overflow: hidden; white-space: nowrap; }
+      .window .seg.cont { border-left-color: transparent; }
+      .window .seg.cur { outline: 2px solid var(--text); outline-offset: -2px; }
+      .window-legend { font-size: 0.8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; }
+      .grid2 { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+      footer { color: var(--muted); font-size: 0.85rem; padding: 1rem 0 3rem; }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <header class="site">
+      <div class="shell">
+        <a class="home" href="../index.html">Sithan Kanna</a>
+        <span class="kbd">FineWeb shard viewer</span>
+      </div>
+    </header>
+
+    <main class="shell">
+      <h1>Look at the Parameter Golf data</h1>
+      <p class="lede">
+        Parameter Golf ships FineWeb as <em>token shards</em>, not text. Each shard is a long stream of uint16 token ids with web pages laid end to end, and every page starts with a BOS token.
+        This page fetches only the bytes it needs from Hugging Face, splits the stream at each BOS and decodes it, so you can step through the documents one at a time.
+        Every step shows the Python that does the same thing (<a href="peek_fineweb.py">peek_fineweb.py</a>, standard library only).
+      </p>
+
+      <section class="panel" aria-label="Data source">
+        <div class="controls">
+          <label>Export
+            <select id="repo">
+              <option value="willdepueoai/parameter-golf">Baseline: willdepueoai/parameter-golf</option>
+              <option value="romeerp/parameter-golf-caseops-v1">CaseOps (lossless caps): romeerp/parameter-golf-caseops-v1</option>
+            </select>
+          </label>
+          <label>Dataset <select id="dataset" disabled><option>load manifest first</option></select></label>
+          <label>Split
+            <select id="split"><option value="val">val (scored)</option><option value="train">train</option></select>
+          </label>
+          <label>Shard <input id="shard" type="number" min="0" value="0"></label>
+          <button id="load" class="primary">Load</button>
+        </div>
+        <div id="status" class="status" role="status"></div>
+      </section>
+
+      <section class="panel" aria-label="Pipeline">
+        <h2>How the text gets here</h2>
+        <p class="sub">Each step runs in your browser. Expand a step to see the Python equivalent, pulled from <code>peek_fineweb.py</code>.</p>
+        <div class="steps">
+          <details class="step" id="step-manifest">
+            <summary><span class="title">Read manifest.json</span><span class="result" data-result>–</span></summary>
+            <p class="why">The manifest lists each tokenizer variant (sp1024, sp8192, CaseOps…), where its SentencePiece model is, and how many val and train shards it has. The first <code>num_val_docs</code> documents of the shuffled document list make up the val split, and the rest are train.</p>
+            <pre class="py" data-py="Source.read,load_manifest"></pre>
+          </details>
+          <details class="step" id="step-tokenizer">
+            <summary><span class="title">Parse the SentencePiece model</span><span class="result" data-result>–</span></summary>
+            <p class="why">A <code>.model</code> file is a protobuf. The only thing needed to <em>decode</em> is the list of pieces and their types: <code>&lt;s&gt;</code> (BOS, id 1) is a control token; <code>&lt;0x0A&gt;</code>-style pieces are raw bytes for characters the vocab doesn't cover; <code>▁</code> marks a leading space.</p>
+            <pre class="py" data-py="_varint,_fields,load_sentencepiece"></pre>
+          </details>
+          <details class="step" id="step-header">
+            <summary><span class="title">Read the shard header</span><span class="result" data-result>–</span></summary>
+            <p class="why">1024 bytes: 256 little-endian int32s. <code>[0]</code> is the magic 20240520, <code>[1]</code> the version, <code>[2]</code> the token count. Tokens follow as uint16, so token <i>i</i> lives at byte <code>1024 + 2i</code>. That fixed layout is what lets us fetch any slice with an HTTP Range request.</p>
+            <pre class="py" data-py="read_header,read_tokens"></pre>
+          </details>
+          <details class="step" id="step-split">
+            <summary><span class="title">Split the stream at BOS</span><span class="result" data-result>–</span></summary>
+            <p class="why">The exporter writes <code>[BOS] + sp.encode(text)</code> for each document and never writes an EOS, so the only place one document ends is where the next BOS begins. Documents also run straight across shard files: a shard is cut at exactly 100M tokens, wherever that lands.</p>
+            <pre class="py" data-py="split_docs"></pre>
+          </details>
+          <details class="step" id="step-decode">
+            <summary><span class="title">Decode tokens to text</span><span class="result" data-result>–</span></summary>
+            <p class="why">Join the pieces, turn byte pieces back into UTF-8, drop control tokens, and turn <code>▁</code> into a space. For the CaseOps export there is one more step: the text was lowercased before tokenizing, with operator tokens marking where the capitals were (⟨TITLE⟩ word, ⟨ALLCAPS⟩ word, ⟨CAPNEXT⟩ letter, ⟨ESC⟩ literal). That transform is exactly invertible, so bits per byte is still scored against the original bytes.</p>
+            <pre class="py" data-py="decode,decode_caseops"></pre>
+          </details>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="viewer" aria-label="Document viewer">
+        <div class="nav">
+          <button id="prev" title="Previous document (←)">← Prev doc</button>
+          <button id="next" title="Next document (→)">Next doc →</button>
+          <button id="random" title="Random position in this shard (r)">Random jump</button>
+          <label class="kbd">token <input id="goto" type="number" min="0" value="0"></label>
+          <button id="go">Go</button>
+          <span class="spacer"></span>
+          <span class="kbd">keys: ← → r</span>
+        </div>
+        <div class="doc-meta" id="meta"></div>
+        <div class="tabs" role="tablist">
+          <button role="tab" data-view="text" aria-selected="true">Text</button>
+          <button role="tab" data-view="model" aria-selected="false" id="tab-model">As tokenized</button>
+          <button role="tab" data-view="tokens" aria-selected="false">Tokens</button>
+          <button role="tab" data-view="ids" aria-selected="false">Ids</button>
+        </div>
+        <div id="doc"></div>
+      </section>
+
+      <div class="grid2">
+        <section class="panel hidden boundary" id="boundary" aria-label="Document boundary">
+          <h2>The boundary, as the model sees it</h2>
+          <p class="sub">The end of the previous document, then BOS, then the start of this one. The two pages are usually unrelated because the document list was shuffled before export.</p>
+          <div class="toks" id="boundary-toks"></div>
+        </section>
+
+        <section class="panel hidden" id="window-panel" aria-label="Training window">
+          <h2>Where this document lands in a training sequence</h2>
+          <p class="sub">
+            The baseline <code>train_gpt.py</code> reads shards as one continuous stream and cuts it into fixed-length sequences, ignoring document boundaries.
+            So a single sequence usually holds the tail of one page, a few whole pages, and the head of another, and attention runs across the joins unless the model masks them (the "BOS fix" and VarLen-attention records on the leaderboard deal with exactly this).
+          </p>
+          <div class="controls">
+            <label>Sequence length
+              <select id="seqlen"><option>1024</option><option selected>2048</option><option>4096</option></select>
+            </label>
+          </div>
+          <div class="window" id="window"></div>
+          <div class="window-legend" id="window-legend"></div>
+        </section>
+      </div>
+
+      <footer>
+        Data: <a href="https://huggingface.co/datasets/willdepueoai/parameter-golf">willdepueoai/parameter-golf</a> and
+        <a href="https://huggingface.co/datasets/romeerp/parameter-golf-caseops-v1">romeerp/parameter-golf-caseops-v1</a> on Hugging Face.
+        Format from <a href="https://github.com/openai/parameter-golf/tree/main/data">openai/parameter-golf/data</a>.
+      </footer>
+    </main>
+
+    <script>
+    "use strict";
+    const params = new URLSearchParams(location.search);
+    // ?base= swaps huggingface.co for a mirror (e.g. a local copy served with Range support).
+    const HF_BASE = (params.get("base") || "https://huggingface.co").replace(/\/$/, "");
+    const ROOT = "datasets";
+    const HEADER_BYTES = 1024, MAGIC = 20240520, BOS = 1;
+    const CHUNK = 1 << 18;           // tokens per Range request (512 KB)
+    const MAX_RENDER_TOKENS = 4000;  // token chips drawn per doc before "show all"
+    const NORMAL = 1, UNKNOWN = 2, CONTROL = 3, USER_DEFINED = 4, UNUSED = 5, BYTE = 6;
+    const OPS = { "\ue001": "TITLE", "\ue002": "ALLCAPS", "\ue003": "CAPNEXT", "\ue004": "ESC" };
+    const OP_MARK = { TITLE: "T", ALLCAPS: "AA", CAPNEXT: "^", ESC: "\\" };
+
+    const $ = (id) => document.getElementById(id);
+    const S = {};  // app state
+    let bytesFetched = 0;
+
+    // ---------- fetching ----------
+    function url(repo, rel) { return `${HF_BASE}/datasets/${repo}/resolve/main/${ROOT}/${rel}`; }
+    async function get(repo, rel, start, end) {
+      const headers = {};
+      if (start != null) headers.Range = `bytes=${start}-${end - 1}`;
+      const r = await fetch(url(repo, rel), { headers });
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText} for ${rel}`);
+      let buf = await r.arrayBuffer();
+      if (start != null && r.status === 200) buf = buf.slice(start, end);  // server ignored Range
+      bytesFetched += buf.byteLength;
+      return buf;
+    }
+
+    // ---------- step 2: SentencePiece protobuf ----------
+    function* fields(u8, lo = 0, hi = u8.length) {
+      let i = lo;
+      const varint = () => { let r = 0, s = 0, b; do { b = u8[i++]; r += (b & 0x7f) * 2 ** s; s += 7; } while (b >= 0x80); return r; };
+      while (i < hi) {
+        const key = varint(), f = Math.floor(key / 8), w = key & 7;
+        if (w === 0) yield [f, varint()];
+        else if (w === 1) { yield [f, null]; i += 8; }
+        else if (w === 2) { const n = varint(); yield [f, [i, i + n]]; i += n; }
+        else if (w === 5) { yield [f, null]; i += 4; }
+        else throw new Error("bad protobuf wire type " + w);
+      }
+    }
+    function loadSentencePiece(buf) {
+      const u8 = new Uint8Array(buf), td = new TextDecoder();
+      const vocab = [];
+      for (const [f, v] of fields(u8)) {
+        if (f !== 1) continue;
+        let piece = "", kind = NORMAL;
+        for (const [ff, vv] of fields(u8, v[0], v[1])) {
+          if (ff === 1) piece = td.decode(u8.subarray(vv[0], vv[1]));
+          else if (ff === 3) kind = vv;
+        }
+        vocab.push({ piece, kind, byte: kind === BYTE ? parseInt(piece.slice(3, 5), 16) : -1 });
+      }
+      return vocab;
+    }
+    function byteVocab() {  // the byte260 variant: pad, bos, eos, unk, then raw bytes 0..255
+      const v = ["<pad>", "<s>", "</s>", "<unk>"].map((p, i) => ({ piece: p, kind: i === 3 ? UNKNOWN : CONTROL, byte: -1 }));
+      for (let b = 0; b < 256; b++) v.push({ piece: `<0x${b.toString(16).toUpperCase().padStart(2, "0")}>`, kind: BYTE, byte: b });
+      return v;
+    }
+
+    // ---------- step 5: decode ----------
+    const utf8 = new TextDecoder("utf-8");
+    const enc = new TextEncoder();
+    function decode(ids, vocab) {
+      const out = [];
+      for (const t of ids) {
+        const v = vocab[t];
+        if (!v || v.kind === CONTROL) continue;
+        if (v.kind === BYTE) out.push(v.byte);
+        else if (v.kind === UNKNOWN) out.push(...enc.encode(" \u2047 "));
+        else out.push(...enc.encode(v.piece.replaceAll("\u2581", " ")));
+      }
+      return utf8.decode(new Uint8Array(out));
+    }
+    const isAlpha = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z");
+    function decodeCaseOps(text) {  // port of decode_lossless_caps_v2
+      let out = "", esc = false, mode = null, allcaps = false, capnext = false, inWord = false;
+      for (const ch of text) {
+        const a = isAlpha(ch);
+        if (esc) { out += ch; esc = false; inWord = a; allcaps = allcaps && a; continue; }
+        if (ch === "\ue004") esc = true;
+        else if (ch === "\ue001") mode = "title";
+        else if (ch === "\ue002") mode = "allcaps";
+        else if (ch === "\ue003") capnext = true;
+        else if (a) {
+          let up;
+          if (!inWord) { up = mode !== null || capnext; allcaps = mode === "allcaps"; inWord = true; }
+          else up = allcaps || capnext;
+          out += up ? ch.toUpperCase() : ch;
+          mode = null; capnext = false;
+        } else { out += ch; inWord = false; allcaps = false; }
+      }
+      return out;
+    }
+
+    // ---------- step 3/4: shard slice + BOS index ----------
+    // S.lo..S.hi is the contiguous token range we hold in S.toks; S.bos are absolute BOS positions in it.
+    async function fetchTokens(a, b) {
+      const buf = await get(S.repo, S.shard, HEADER_BYTES + 2 * a, HEADER_BYTES + 2 * b);
+      return new Uint16Array(buf);  // little-endian on every browser platform
+    }
+    function indexBos(toks, base) {
+      const out = [];
+      for (let i = 0; i < toks.length; i++) if (toks[i] === BOS) out.push(base + i);
+      return out;
+    }
+    async function resetTo(a) {
+      a = Math.max(0, Math.min(a, S.n));
+      const b = Math.min(S.n, a + CHUNK);
+      S.toks = await fetchTokens(a, b); S.lo = a; S.hi = b; S.bos = indexBos(S.toks, a);
+    }
+    async function extendRight() {
+      if (S.hi >= S.n) return false;
+      const b = Math.min(S.n, S.hi + CHUNK), more = await fetchTokens(S.hi, b);
+      const t = new Uint16Array(S.toks.length + more.length); t.set(S.toks); t.set(more, S.toks.length);
+      S.bos.push(...indexBos(more, S.hi)); S.toks = t; S.hi = b;
+      return true;
+    }
+    async function extendLeft() {
+      if (S.lo <= 0) return false;
+      const a = Math.max(0, S.lo - CHUNK), more = await fetchTokens(a, S.lo);
+      const t = new Uint16Array(S.toks.length + more.length); t.set(more); t.set(S.toks, more.length);
+      S.bos = indexBos(more, a).concat(S.bos); S.toks = t; S.lo = a;
+      return true;
+    }
+    const tok = (i) => S.toks[i - S.lo];
+    function firstBosAtOrAfter(p) { for (const x of S.bos) if (x >= p) return x; return -1; }
+    function lastBosBefore(p) { let r = -1; for (const x of S.bos) { if (x < p) r = x; else break; } return r; }
+    // End of the document that starts at s: the next BOS, or the end of the shard.
+    async function docEnd(s) {
+      for (;;) {
+        const e = firstBosAtOrAfter(s + 1);
+        if (e >= 0) return e;
+        if (!(await extendRight())) return S.n;
+      }
+    }
+    async function ensureLeft(p) { while (S.lo > Math.max(0, p)) if (!(await extendLeft())) break; }
+
+    // ---------- UI ----------
+    function setStatus(msg, err = false) { $("status").textContent = msg; $("status").className = "status" + (err ? " error" : ""); }
+    function stepDone(id, text) { const el = $(id); el.classList.add("done"); el.querySelector("[data-result]").textContent = text; }
+    function stepReset() { document.querySelectorAll(".step").forEach((el) => { el.classList.remove("done"); el.querySelector("[data-result]").textContent = "–"; }); }
+    const fmt = (n) => n.toLocaleString("en-US");
+    const busy = (on) => ["load", "prev", "next", "random", "go"].forEach((id) => ($(id).disabled = on));
+
+    async function loadManifest() {
+      stepReset();
+      S.repo = $("repo").value;
+      setStatus(`Fetching ${url(S.repo, "manifest.json")} …`);
+      const m = JSON.parse(utf8.decode(await get(S.repo, "manifest.json")));
+      S.manifest = m;
+      const sel = $("dataset");
+      sel.innerHTML = "";
+      for (const d of m.datasets) {
+        const o = document.createElement("option");
+        o.value = d.name; o.textContent = `${d.name} (vocab ${d.vocab_size})`;
+        sel.appendChild(o);
+      }
+      const pref = m.datasets.find((d) => d.name === "fineweb10B_sp1024") || m.datasets[0];
+      sel.value = pref.name; sel.disabled = false;
+      stepDone("step-manifest", `${m.datasets.length} dataset(s): ${m.datasets.map((d) => d.name.replace("fineweb10B_", "")).join(", ")} · ${fmt(m.num_docs || 0)} docs, first ${fmt(m.num_val_docs || 0)} are val`);
+    }
+
+    async function loadShard() {
+      busy(true);
+      try {
+        if (!S.manifest || S.repo !== $("repo").value) await loadManifest();
+        const m = S.manifest, ds = m.datasets.find((d) => d.name === $("dataset").value);
+        const tk = m.tokenizers.find((t) => t.name === ds.tokenizer_name);
+        S.ds = ds;
+        S.caseops = /caseops/.test((tk.text_transform || "") + tk.name);
+        if (S.tokName !== tk.name || S.tokRepo !== S.repo) {
+          if (tk.model_path) {
+            setStatus(`Fetching tokenizer ${tk.model_path} …`);
+            S.vocab = loadSentencePiece(await get(S.repo, tk.model_path));
+          } else S.vocab = byteVocab();
+          S.tokName = tk.name; S.tokRepo = S.repo;
+        }
+        const counts = {};
+        S.vocab.forEach((v) => (counts[v.kind] = (counts[v.kind] || 0) + 1));
+        stepDone("step-tokenizer", `${tk.model_path || tk.name}: ${fmt(S.vocab.length)} pieces · ${counts[BYTE] || 0} byte · ${counts[CONTROL] || 0} control${counts[USER_DEFINED] ? ` · ${counts[USER_DEFINED]} CaseOps operators` : ""}`);
+
+        const split = $("split").value, stats = ds.stats || {};
+        const nShards = stats[`files_${split}`];
+        const shard = Math.max(0, parseInt($("shard").value || "0", 10));
+        if (nShards != null && shard >= nShards) throw new Error(`${ds.name} has ${nShards} ${split} shard(s); pick 0–${nShards - 1}`);
+        S.shard = `datasets/${ds.name}/fineweb_${split}_${String(shard).padStart(6, "0")}.bin`;
+        S.split = split; S.shardIdx = shard;
+        setStatus(`Fetching header of ${S.shard} …`);
+        const h = new Int32Array(await get(S.repo, S.shard, 0, HEADER_BYTES));
+        if (h[0] !== MAGIC || h[1] !== 1) throw new Error(`unexpected header ${h[0]}, ${h[1]}`);
+        S.n = h[2];
+        stepDone("step-header", `magic ${h[0]} · version ${h[1]} · ${fmt(S.n)} tokens = ${(2 * S.n / 1e6).toFixed(1)} MB of uint16`);
+
+        await resetTo(0);
+        await showDocAt(S.bos.length ? S.bos[0] : 0);
+        $("viewer").classList.remove("hidden"); $("boundary").classList.remove("hidden"); $("window-panel").classList.remove("hidden");
+        $("tab-model").classList.toggle("hidden", !S.caseops);
+        if (!S.caseops && S.view === "model") S.view = "text";
+      } catch (e) {
+        console.error(e);
+        setStatus(`${e.message}. ${HF_BASE.includes("huggingface.co") ? "If Hugging Face is unreachable from your network, run peek_fineweb.py locally instead." : ""}`, true);
+      } finally { busy(false); }
+    }
+
+    async function showDocAt(start) {
+      await ensureLeft(start - 64);
+      const end = await docEnd(start);
+      S.cur = start; S.curEnd = end;
+      render();
+      setStatus(`Holding tokens [${fmt(S.lo)}, ${fmt(S.hi)}) of ${fmt(S.n)} · ${(bytesFetched / 1e6).toFixed(2)} MB fetched so far`);
+    }
+
+    function pieceLabel(v) {
+      if (v.kind === BYTE) return v.piece;
+      if (OPS[v.piece]) return `⟨${OPS[v.piece]}⟩`;
+      return v.piece;
+    }
+    function tokenEl(id, extra = "") {
+      const v = S.vocab[id] || { piece: `?${id}`, kind: NORMAL };
+      const s = document.createElement("span");
+      s.className = "tok" + extra;
+      if (id === BOS) s.classList.add("bos");
+      else if (OPS[v.piece]) s.classList.add("op");
+      else if (v.kind === BYTE) s.classList.add("byte");
+      const label = pieceLabel(v);
+      if (label.startsWith("\u2581")) {
+        const sp = document.createElement("span"); sp.className = "sp"; sp.textContent = "▁";
+        s.append(sp, label.slice(1));
+      } else s.textContent = label;
+      if (v.piece === "<0x0A>") s.classList.add("nl");
+      s.title = `id ${id} · ${["", "normal", "unknown", "control", "user-defined", "unused", "byte"][v.kind]}`;
+      return s;
+    }
+
+    function render() {
+      const s = S.cur, e = S.curEnd, n = e - s;
+      const ids = S.toks.subarray(s - S.lo, e - S.lo);
+      const raw = decode(ids, S.vocab), text = S.caseops ? decodeCaseOps(raw) : raw;
+      const bytes = enc.encode(text).length;
+      const hasStart = tok(s) === BOS, prevBos = lastBosBefore(s);
+      const ordinal = S.lo === 0 && hasStart ? S.bos.indexOf(s) : -1;
+      let docNo = "";
+      if (ordinal >= 0 && S.shardIdx === 0) docNo = S.split === "val" ? `val doc #${fmt(ordinal)}` : `train doc #${fmt(ordinal)} of shard`;
+      else if (ordinal >= 0) docNo = `doc #${fmt(ordinal)} in this shard`;
+      $("meta").innerHTML = "";
+      const add = (k, v, cls = "") => { const d = document.createElement("span"); if (cls) d.className = cls; d.innerHTML = k ? `${k} <b></b>` : ""; if (k) d.querySelector("b").textContent = v; else d.textContent = v; $("meta").appendChild(d); };
+      if (docNo) add("", docNo);
+      add("tokens", `[${fmt(s)}, ${fmt(e)})`);
+      add("length", `${fmt(n)} tok`);
+      add("bytes", fmt(bytes));
+      add("bytes/token", (bytes / Math.max(1, n - (hasStart ? 1 : 0))).toFixed(2));
+      if (!hasStart) add("", s === 0 && S.shardIdx > 0 ? "continues from the previous shard" : "no BOS here: tail of a document", "flag");
+      if (e === S.n) add("", "runs to the end of the shard (may continue in the next one)", "flag");
+      $("goto").value = s;
+
+      const view = S.view || "text", out = $("doc");
+      document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === view)));
+      out.innerHTML = "";
+      if (view === "text") {
+        const d = document.createElement("div"); d.className = "doc-text"; d.textContent = text; out.appendChild(d);
+      } else if (view === "model") {
+        const d = document.createElement("div"); d.className = "doc-text";
+        for (const part of raw.split(/([\ue001-\ue004])/)) {
+          if (OPS[part]) { const m = document.createElement("span"); m.className = "opmark"; m.textContent = OP_MARK[OPS[part]]; m.title = OPS[part]; d.appendChild(m); }
+          else if (part) d.appendChild(document.createTextNode(part));
+        }
+        out.appendChild(d);
+        const note = document.createElement("div"); note.className = "more";
+        const opCount = [...ids].filter((t) => OPS[(S.vocab[t] || {}).piece]).length;
+        note.textContent = `This is the lowercased text the tokenizer saw. ${fmt(opCount)} of ${fmt(n)} tokens (${(100 * opCount / Math.max(1, n)).toFixed(1)}%) are case operators: T = title-case the next word, AA = all-caps word, ^ = capitalize next letter.`;
+        out.appendChild(note);
+      } else {
+        const wrap = document.createElement("div"); wrap.className = "toks" + (view === "ids" ? " ids" : "");
+        const limit = S.showAll ? n : Math.min(n, MAX_RENDER_TOKENS);
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < limit; i++) {
+          const id = ids[i];
+          if (view === "ids") { const sp = document.createElement("span"); sp.className = "tok" + (id === BOS ? " bos" : ""); sp.textContent = id; sp.title = pieceLabel(S.vocab[id] || { piece: "?" }); frag.appendChild(sp); }
+          else frag.appendChild(tokenEl(id));
+        }
+        wrap.appendChild(frag); out.appendChild(wrap);
+        if (limit < n) {
+          const b = document.createElement("button"); b.textContent = `Show all ${fmt(n)} tokens`;
+          b.onclick = () => { S.showAll = true; render(); };
+          out.appendChild(b);
+        }
+      }
+
+      // boundary strip
+      const bt = $("boundary-toks"); bt.innerHTML = "";
+      const from = Math.max(S.lo, s - 40), to = Math.min(e, s + 40);
+      if (from === s) { const note = document.createElement("span"); note.className = "more"; note.textContent = s === 0 ? "(start of shard: nothing before this)" : ""; bt.appendChild(note); }
+      for (let i = from; i < to; i++) bt.appendChild(tokenEl(tok(i), i < s ? " prev" : ""));
+
+      const heldBos = S.bos.length;
+      stepDone("step-split", `${fmt(heldBos)} BOS in the ${fmt(S.hi - S.lo)} tokens held · this doc: ${fmt(n)} tokens from ${fmt(s)} to the next BOS at ${fmt(e)}`);
+      stepDone("step-decode", `${fmt(n)} tokens → ${fmt(bytes)} UTF-8 bytes${S.caseops ? " (after undoing CaseOps)" : ""}`);
+      renderWindow();
+      $("prev").disabled = s <= 0;
+      $("next").disabled = e >= S.n;
+    }
+
+    function renderWindow() {
+      const L = parseInt($("seqlen").value, 10), s = S.cur;
+      // The baseline loader cuts the stream at multiples of L from the start of the shard.
+      const w0 = Math.floor(s / L) * L, w1 = Math.min(w0 + L, S.n);
+      const box = $("window"); box.innerHTML = "";
+      if (w0 < S.lo || w1 > S.hi) { box.textContent = ""; $("window-legend").textContent = "Window extends beyond loaded tokens."; return; }
+      const cuts = [w0, ...S.bos.filter((b) => b > w0 && b < w1), w1];
+      let docsIn = 0, k = 0;
+      for (let i = 0; i + 1 < cuts.length; i++) {
+        const a = cuts[i], b = cuts[i + 1], seg = document.createElement("div");
+        seg.className = "seg" + (tok(a) === BOS ? "" : " cont") + (a === s ? " cur" : "");
+        seg.style.flex = String(b - a);
+        seg.style.background = `var(--seg${k++ % 6})`;
+        seg.title = `tokens [${fmt(a)}, ${fmt(b)}) · ${fmt(b - a)} tokens${tok(a) === BOS ? "" : " (continues from before the window)"}`;
+        if (b - a > L / 12) seg.textContent = fmt(b - a);
+        if (tok(a) === BOS) docsIn++;
+        box.appendChild(seg);
+      }
+      $("window-legend").innerHTML = "";
+      const parts = [
+        `sequence ${fmt(w0 / L)}: tokens [${fmt(w0)}, ${fmt(w1)})`,
+        `${cuts.length - 1} segment(s), ${docsIn} BOS`,
+        "outlined = this document · orange bar = BOS",
+      ];
+      for (const p of parts) { const sp = document.createElement("span"); sp.textContent = p; $("window-legend").appendChild(sp); }
+    }
+
+    async function nav(fn) {
+      busy(true);
+      try { await fn(); } catch (e) { console.error(e); setStatus(e.message, true); } finally { busy(false); }
+    }
+    const nextDoc = () => nav(async () => { S.showAll = false; if (S.curEnd < S.n) await showDocAt(S.curEnd); });
+    const prevDoc = () => nav(async () => {
+      S.showAll = false;
+      if (S.cur <= 0) return;
+      await ensureLeft(S.cur - 1);
+      let p = lastBosBefore(S.cur);
+      while (p < 0 && (await extendLeft())) p = lastBosBefore(S.cur);
+      await showDocAt(Math.max(0, p));
+    });
+    const jumpTo = (t) => nav(async () => {
+      S.showAll = false;
+      t = Math.max(0, Math.min(S.n - 1, t));
+      if (t < S.lo || t >= S.hi) await resetTo(Math.max(0, t - 64));
+      let p = firstBosAtOrAfter(t);
+      while (p < 0 && (await extendRight())) p = firstBosAtOrAfter(t);
+      await showDocAt(p < 0 ? t : p);
+    });
+
+    $("load").onclick = loadShard;
+    $("repo").onchange = () => { S.manifest = null; $("dataset").disabled = true; $("dataset").innerHTML = "<option>load manifest first</option>"; };
+    $("next").onclick = nextDoc;
+    $("prev").onclick = prevDoc;
+    $("random").onclick = () => jumpTo(Math.floor(Math.random() * S.n));
+    $("go").onclick = () => jumpTo(parseInt($("goto").value || "0", 10));
+    $("seqlen").onchange = () => S.toks && renderWindow();
+    document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { S.view = b.dataset.view; render(); }));
+    document.addEventListener("keydown", (ev) => {
+      if (!S.toks || ev.target.matches("input, select, textarea") || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      if (ev.key === "ArrowRight" && !$("next").disabled) nextDoc();
+      else if (ev.key === "ArrowLeft" && !$("prev").disabled) prevDoc();
+      else if (ev.key === "r" && !$("random").disabled) $("random").click();
+    });
+
+    // ---------- Python snippets, pulled from peek_fineweb.py ----------
+    function extractPy(src, name) {
+      const lines = src.split("\n");
+      const [cls, meth] = name.split(".");
+      const c = meth ? lines.findIndex((l) => l.startsWith(`class ${cls}`)) : -1;
+      const def = `def ${meth || name}(`;
+      const i = lines.findIndex((l, k) => k > c && l.trimStart().startsWith(def) && (meth || l.startsWith(def)));
+      if (i < 0) return "";
+      const indent = lines[i].length - lines[i].trimStart().length;
+      let j = i + 1;  // the body is every following line that is blank or indented deeper than the def
+      while (j < lines.length && (lines[j].trim() === "" || lines[j].length - lines[j].trimStart().length > indent)) j++;
+      while (j > i && lines[j - 1].trim() === "") j--;
+      return lines.slice(i, j).map((l) => l.slice(indent)).join("\n");
+    }
+    function highlight(code) {
+      const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const re = /("""[\s\S]*?"""|f?"(?:\\.|[^"\\])*"|f?'(?:\\.|[^'\\])*')|(#.*)|\b(def|return|yield|for|in|if|elif|else|while|with|as|not|and|or|is|None|True|False|continue|break|raise|class|import|from|lambda)\b|\b(\d+(?:_\d+)*|0x[0-9a-fA-F]+)\b/g;
+      let out = "", last = 0, m;
+      while ((m = re.exec(code))) {
+        out += esc(code.slice(last, m.index));
+        const cls = m[1] ? "str" : m[2] ? "com" : m[3] ? "kw" : "num";
+        out += `<span class="${cls}">${esc(m[0])}</span>`;
+        last = re.lastIndex;
+      }
+      return out + esc(code.slice(last));
+    }
+    fetch("peek_fineweb.py").then((r) => (r.ok ? r.text() : Promise.reject())).then((src) => {
+      document.querySelectorAll("pre[data-py]").forEach((pre) => {
+        pre.innerHTML = highlight(pre.dataset.py.split(",").map((n) => extractPy(src, n)).filter(Boolean).join("\n\n"));
+      });
+    }).catch(() => {
+      document.querySelectorAll("pre[data-py]").forEach((pre) => (pre.textContent = "See peek_fineweb.py next to this page."));
+    });
+    </script>
+  </body>
+</html>
