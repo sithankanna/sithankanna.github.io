@@ -25,11 +25,19 @@
       }
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
+          color-scheme: dark;
           --bg: #161816; --surface: #1e211e; --text: #e4e7e3; --muted: #9aa19a; --line: #343934;
           --accent: #6cb0e4; --accent-soft: #1d2e3b; --code: #232723;
           --bos: #fb923c; --bos-soft: #3b2415; --op: #b794f6; --op-soft: #2c2240; --byte-soft: #2c2a22;
           --t0: #1f2c38; --t1: #243020; --t2: #362b1d; --t3: #2f2436; --t4: #1c302c; --t5: #37232a;
         }
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #161816; --surface: #1e211e; --text: #e4e7e3; --muted: #9aa19a; --line: #343934;
+        --accent: #6cb0e4; --accent-soft: #1d2e3b; --code: #232723;
+        --bos: #fb923c; --bos-soft: #3b2415; --op: #b794f6; --op-soft: #2c2240; --byte-soft: #2c2a22;
+        --t0: #1f2c38; --t1: #243020; --t2: #362b1d; --t3: #2f2436; --t4: #1c302c; --t5: #37232a;
       }
       * { box-sizing: border-box; }
       body {
@@ -58,6 +66,10 @@
       button:disabled { opacity: 0.5; cursor: default; }
       .status { font-size: 0.85rem; color: var(--muted); margin-top: 0.6rem; min-height: 1.3em; }
       .status.error { color: #b91c1c; }
+      .note { font-size: 0.85rem; margin: 0.5rem 0 0; padding: 0.5rem 0.7rem; border-radius: 6px; background: var(--accent-soft); }
+      .note:empty { display: none; }
+      .src-files .remote-only, .src-remote .files-only { display: none; }
+      input[type=file] { max-width: 16rem; }
 
       /* pipeline */
       .steps { counter-reset: step; display: grid; gap: 0.5rem; }
@@ -79,6 +91,7 @@
       }
       .py .kw { color: #a626a4; } .py .str { color: #50a14f; } .py .com { color: #8a918a; font-style: italic; } .py .num { color: #b76b01; }
       @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .py .kw { color: #d49cf0; } :root:not([data-theme="light"]) .py .str { color: #98c379; } :root:not([data-theme="light"]) .py .num { color: #e5c07b; } }
+      :root[data-theme="dark"] .py .kw { color: #d49cf0; } :root[data-theme="dark"] .py .str { color: #98c379; } :root[data-theme="dark"] .py .num { color: #e5c07b; }
 
       /* navigator */
       .nav { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
@@ -142,18 +155,29 @@
         <div class="controls">
           <label>Export
             <select id="repo">
-              <option value="willdepueoai/parameter-golf">Baseline: willdepueoai/parameter-golf</option>
-              <option value="romeerp/parameter-golf-caseops-v1">CaseOps (lossless caps): romeerp/parameter-golf-caseops-v1</option>
+              <optgroup label="Bundled sample (made-up docs, real tokenizers)">
+                <option value="sample:willdepueoai/parameter-golf">Sample: baseline sp8192</option>
+                <option value="sample:romeerp/parameter-golf-caseops-v1">Sample: CaseOps sp8192</option>
+              </optgroup>
+              <optgroup label="Hugging Face (real FineWeb)">
+                <option value="hf:willdepueoai/parameter-golf">Baseline: willdepueoai/parameter-golf</option>
+                <option value="hf:romeerp/parameter-golf-caseops-v1">CaseOps (lossless caps): romeerp/parameter-golf-caseops-v1</option>
+              </optgroup>
+              <option value="files">Files on this computer (.bin shard + .model)</option>
             </select>
           </label>
-          <label>Dataset <select id="dataset" disabled><option>load manifest first</option></select></label>
-          <label>Split
+          <label class="files-only">Shard file (.bin) <input id="file-bin" type="file" accept=".bin"></label>
+          <label class="files-only">Tokenizer (.model) <input id="file-model" type="file" accept=".model"></label>
+          <label class="files-only" style="flex-direction:row;align-items:center;gap:0.4rem"><input id="file-caseops" type="checkbox"> CaseOps data</label>
+          <label class="remote-only">Dataset <select id="dataset" disabled><option>load manifest first</option></select></label>
+          <label class="remote-only">Split
             <select id="split"><option value="val">val (scored)</option><option value="train">train</option></select>
           </label>
-          <label>Shard <input id="shard" type="number" min="0" value="0"></label>
+          <label class="remote-only">Shard <input id="shard" type="number" min="0" value="0"></label>
           <button id="load" class="primary">Load</button>
         </div>
         <div id="status" class="status" role="status"></div>
+        <p id="source-note" class="note"></p>
       </section>
 
       <section class="panel" aria-label="Pipeline">
@@ -256,8 +280,37 @@
     let bytesFetched = 0;
 
     // ---------- fetching ----------
-    function url(repo, rel) { return `${HF_BASE}/datasets/${repo}/resolve/main/${ROOT}/${rel}`; }
+    // Sources: "hf:<repo>" streams from Hugging Face, "sample:<repo>" reads the copy in ./sample/,
+    // "files" reads a shard and tokenizer the viewer picked from their own disk.
+    function url(repo, rel) {
+      const [kind, name] = repo.split(":");
+      if (kind === "sample") return `sample.json → ${name}/${rel}`;
+      return `${HF_BASE}/datasets/${name}/resolve/main/${ROOT}/${rel}`;
+    }
+    function localManifest() {
+      const bin = $("file-bin").files[0], caseops = $("file-caseops").checked;
+      const tok = { name: caseops ? "local_caseops" : "local", model_path: "local.model", vocab_size: 0 };
+      if (caseops) tok.text_transform = "lossless_caps_caseops_v1";
+      return { tokenizers: [tok], datasets: [{ name: bin.name, tokenizer_name: tok.name, vocab_size: "from .model", stats: {} }] };
+    }
+    let sampleFiles = null;  // sample.json: {"<repo>/<path>": base64}, one file so any static host can serve it
     async function get(repo, rel, start, end) {
+      if (repo.startsWith("sample:")) {
+        if (!sampleFiles) { const r = await fetch("sample.json"); if (!r.ok) throw new Error("sample.json missing"); sampleFiles = await r.json(); }
+        const b64 = sampleFiles[`${repo.slice(7)}/${rel}`];
+        if (!b64) throw new Error(`${rel} is not in the bundled sample`);
+        const all = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const buf = (start == null ? all : all.slice(start, end)).buffer;
+        bytesFetched += buf.byteLength;
+        return buf;
+      }
+      if (repo === "files") {
+        if (rel === "manifest.json") return new TextEncoder().encode(JSON.stringify(localManifest())).buffer;
+        const f = $(rel.endsWith(".model") ? "file-model" : "file-bin").files[0];
+        const buf = await (start == null ? f : f.slice(start, end)).arrayBuffer();
+        bytesFetched += buf.byteLength;
+        return buf;
+      }
       const headers = {};
       if (start != null) headers.Range = `bytes=${start}-${end - 1}`;
       const r = await fetch(url(repo, rel), { headers });
@@ -389,7 +442,9 @@
     async function loadManifest() {
       stepReset();
       S.repo = $("repo").value;
-      setStatus(`Fetching ${url(S.repo, "manifest.json")} …`);
+      if (S.repo === "files" && (!$("file-bin").files[0] || !$("file-model").files[0]))
+        throw new Error("Pick a shard (.bin) and its tokenizer (.model) first");
+      setStatus(S.repo === "files" ? "Reading your files …" : `Fetching ${url(S.repo, "manifest.json")} …`);
       const m = JSON.parse(utf8.decode(await get(S.repo, "manifest.json")));
       S.manifest = m;
       const sel = $("dataset");
@@ -407,12 +462,12 @@
     async function loadShard() {
       busy(true);
       try {
-        if (!S.manifest || S.repo !== $("repo").value) await loadManifest();
+        if (!S.manifest || S.repo !== $("repo").value || S.repo === "files") await loadManifest();
         const m = S.manifest, ds = m.datasets.find((d) => d.name === $("dataset").value);
         const tk = m.tokenizers.find((t) => t.name === ds.tokenizer_name);
         S.ds = ds;
         S.caseops = /caseops/.test((tk.text_transform || "") + tk.name);
-        if (S.tokName !== tk.name || S.tokRepo !== S.repo) {
+        if (S.tokName !== tk.name || S.tokRepo !== S.repo || S.repo === "files") {
           if (tk.model_path) {
             setStatus(`Fetching tokenizer ${tk.model_path} …`);
             S.vocab = loadSentencePiece(await get(S.repo, tk.model_path));
@@ -429,6 +484,10 @@
         if (nShards != null && shard >= nShards) throw new Error(`${ds.name} has ${nShards} ${split} shard(s); pick 0–${nShards - 1}`);
         S.shard = `datasets/${ds.name}/fineweb_${split}_${String(shard).padStart(6, "0")}.bin`;
         S.split = split; S.shardIdx = shard;
+        if (S.repo === "files") {
+          const name = ds.name, m2 = name.match(/fineweb_(val|train)_(\d+)\.bin$/);
+          S.shard = "local.bin"; S.split = m2 ? m2[1] : "?"; S.shardIdx = m2 ? parseInt(m2[2], 10) : -1;
+        }
         setStatus(`Fetching header of ${S.shard} …`);
         const h = new Int32Array(await get(S.repo, S.shard, 0, HEADER_BYTES));
         if (h[0] !== MAGIC || h[1] !== 1) throw new Error(`unexpected header ${h[0]}, ${h[1]}`);
@@ -442,7 +501,8 @@
         if (!S.caseops && S.view === "model") S.view = "text";
       } catch (e) {
         console.error(e);
-        setStatus(`${e.message}. ${HF_BASE.includes("huggingface.co") ? "If Hugging Face is unreachable from your network, run peek_fineweb.py locally instead." : ""}`, true);
+        const hf = S.repo && S.repo.startsWith("hf:");
+        setStatus(`${e.message}.${hf ? " This page could not reach Hugging Face. Pages hosted on claude.ai can't fetch other sites; open the copy on sithankanna.com, run peek_fineweb.py, or load the files from your computer." : ""}`, true);
       } finally { busy(false); }
     }
 
@@ -594,7 +654,20 @@
     });
 
     $("load").onclick = loadShard;
-    $("repo").onchange = () => { S.manifest = null; $("dataset").disabled = true; $("dataset").innerHTML = "<option>load manifest first</option>"; };
+    const NOTES = {
+      sample: "Bundled sample: 400 short documents I wrote to demo the viewer, not FineWeb. They are tokenized with the real Parameter Golf sp8192 tokenizers (by a simple BPE encoder, so splits can differ slightly from sp.encode). Switch the export to Hugging Face or your own files for the real data.",
+      hf: "Streams real shards from Hugging Face with Range requests. This works on sithankanna.com or a local server; pages hosted on claude.ai are not allowed to fetch other sites.",
+      files: "Get the files with the repo's downloader: python3 data/cached_challenge_fineweb.py --variant sp1024 --train-shards 1. The shard is in data/datasets/fineweb10B_sp1024/ and the tokenizer is in data/tokenizers/. Nothing is uploaded; the page reads the files in your browser.",
+    };
+    function onSource() {
+      const v = $("repo").value, kind = v.split(":")[0];
+      document.body.classList.toggle("src-files", kind === "files");
+      document.body.classList.toggle("src-remote", kind !== "files");
+      $("source-note").textContent = NOTES[kind];
+      S.manifest = null; $("dataset").disabled = true; $("dataset").innerHTML = "<option>load manifest first</option>";
+    }
+    $("repo").onchange = onSource;
+    onSource();
     $("next").onclick = nextDoc;
     $("prev").onclick = prevDoc;
     $("random").onclick = () => jumpTo(Math.floor(Math.random() * S.n));
@@ -634,6 +707,7 @@
       }
       return out + esc(code.slice(last));
     }
+    loadShard();  // open on the bundled sample so the page shows a document straight away
     fetch("peek_fineweb.py").then((r) => (r.ok ? r.text() : Promise.reject())).then((src) => {
       document.querySelectorAll("pre[data-py]").forEach((pre) => {
         pre.innerHTML = highlight(pre.dataset.py.split(",").map((n) => extractPy(src, n)).filter(Boolean).join("\n\n"));
