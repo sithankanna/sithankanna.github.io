@@ -155,9 +155,9 @@
         <div class="controls">
           <label>Export
             <select id="repo">
-              <optgroup label="Bundled sample (made-up docs, real tokenizers)">
-                <option value="sample:willdepueoai/parameter-golf">Sample: baseline sp8192</option>
-                <option value="sample:romeerp/parameter-golf-caseops-v1">Sample: CaseOps sp8192</option>
+              <optgroup label="Bundled: first 125 real val documents">
+                <option value="sample:willdepueoai/parameter-golf">Baseline sp1024 (willdepueoai)</option>
+                <option value="sample:romeerp/parameter-golf-caseops-v1">CaseOps sp8192 (romeerp)</option>
               </optgroup>
               <optgroup label="Hugging Face (real FineWeb)">
                 <option value="hf:willdepueoai/parameter-golf">Baseline: willdepueoai/parameter-golf</option>
@@ -437,7 +437,10 @@
     function stepDone(id, text) { const el = $(id); el.classList.add("done"); el.querySelector("[data-result]").textContent = text; }
     function stepReset() { document.querySelectorAll(".step").forEach((el) => { el.classList.remove("done"); el.querySelector("[data-result]").textContent = "–"; }); }
     const fmt = (n) => n.toLocaleString("en-US");
-    const busy = (on) => ["load", "prev", "next", "random", "go"].forEach((id) => ($(id).disabled = on));
+    function busy(on) {
+      ["load", "prev", "next", "random", "go"].forEach((id) => ($(id).disabled = on));
+      if (!on && S.toks) { $("prev").disabled = S.cur <= 0; $("next").disabled = S.curEnd >= S.n; }
+    }
 
     async function loadManifest() {
       stepReset();
@@ -554,7 +557,7 @@
       add("bytes", fmt(bytes));
       add("bytes/token", (bytes / Math.max(1, n - (hasStart ? 1 : 0))).toFixed(2));
       if (!hasStart) add("", s === 0 && S.shardIdx > 0 ? "continues from the previous shard" : "no BOS here: tail of a document", "flag");
-      if (e === S.n) add("", "runs to the end of the shard (may continue in the next one)", "flag");
+      if (e === S.n) add("", S.repo.startsWith("sample:") ? "last document in the bundled sample" : "runs to the end of the shard (may continue in the next one)", "flag");
       $("goto").value = s;
 
       const view = S.view || "text", out = $("doc");
@@ -650,12 +653,16 @@
       if (t < S.lo || t >= S.hi) await resetTo(Math.max(0, t - 64));
       let p = firstBosAtOrAfter(t);
       while (p < 0 && (await extendRight())) p = firstBosAtOrAfter(t);
+      if (p < 0) {  // no document starts after t: show the one t falls inside
+        await ensureLeft(t - CHUNK);
+        p = lastBosBefore(t + 1);
+      }
       await showDocAt(p < 0 ? t : p);
     });
 
     $("load").onclick = loadShard;
     const NOTES = {
-      sample: "Bundled sample: 400 short documents I wrote to demo the viewer, not FineWeb. They are tokenized with the real Parameter Golf sp8192 tokenizers (by a simple BPE encoder, so splits can differ slightly from sp.encode). Switch the export to Hugging Face or your own files for the real data.",
+      sample: "Bundled copy of the first 125 validation documents (val doc #0 to #124), cut byte-for-byte from the real shards on Hugging Face. Both exports hold the same 125 web pages, so switching between them shows the same text under the two tokenizers. For the other 49,875 val docs and the train shards, use Hugging Face (on sithankanna.com or a local server) or your own files.",
       hf: "Streams real shards from Hugging Face with Range requests. This works on sithankanna.com or a local server; pages hosted on claude.ai are not allowed to fetch other sites.",
       files: "Get the files with the repo's downloader: python3 data/cached_challenge_fineweb.py --variant sp1024 --train-shards 1. The shard is in data/datasets/fineweb10B_sp1024/ and the tokenizer is in data/tokenizers/. Nothing is uploaded; the page reads the files in your browser.",
     };
