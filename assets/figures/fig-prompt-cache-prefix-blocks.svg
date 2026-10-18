@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" width="760" height="340" font-family="Georgia, 'Times New Roman', serif" fill="#252825" role="img" aria-label="With blocks of two tokens, requests ABCD and ABDE share only the AB prefix block. Their second blocks CD and DE differ; D at a different position is not a cache hit.">
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="#252825"/></marker></defs>
+<text x="380" y="25" text-anchor="middle" font-size="16" font-weight="bold">Prefix lookup follows token blocks from the start</text>
+<text x="380" y="56" text-anchor="middle" font-size="13" fill="#686e68">Illustrative block size: 2 tokens</text>
+<rect x="85" y="137" width="160" height="55" rx="6" fill="#e8f0fa" stroke="#3f6fa0" stroke-width="1.3"/>
+<text x="165" y="160" text-anchor="middle" font-size="16" font-weight="normal">A B</text>
+<text x="165" y="179" text-anchor="middle" font-size="11" fill="#3f6fa0">K/V at every layer</text>
+<rect x="435" y="91" width="160" height="55" rx="6" fill="#e8f0fa" stroke="#3f6fa0" stroke-width="1.3"/>
+<text x="515" y="114" text-anchor="middle" font-size="16" font-weight="normal">C D</text>
+<text x="515" y="133" text-anchor="middle" font-size="11" fill="#3f6fa0">K/V at every layer</text>
+<rect x="435" y="185" width="160" height="55" rx="6" fill="#e8f0fa" stroke="#3f6fa0" stroke-width="1.3"/>
+<text x="515" y="208" text-anchor="middle" font-size="16" font-weight="normal">D E</text>
+<text x="515" y="227" text-anchor="middle" font-size="11" fill="#3f6fa0">K/V at every layer</text>
+<path d="M245 164 H330 V118 H425 M330 164 V212 H425" stroke="#252825" fill="none" stroke-width="1.25" marker-end="url(#arrow)"/>
+<text x="165" y="220" text-anchor="middle" font-size="13" >shared prefix block</text>
+<text x="655" y="122" text-anchor="middle" font-size="14" >A B C D</text>
+<text x="655" y="216" text-anchor="middle" font-size="14" >A B D E</text>
+<text x="380" y="278" text-anchor="middle" font-size="13" >Only the first A B block is shared by these requests.</text>
+<text x="380" y="304" text-anchor="middle" font-size="13" >Matching a token later in the sequence is not a prefix match.</text>
+</svg>

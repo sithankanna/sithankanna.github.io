@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 445" width="600" height="445" font-family="Georgia, serif" fill="#252825" role="img" aria-label="Left: saved cache after turn one. Right: new tokens flow through layers 1 and 2 using those saved values. Dashed reuse arrows connect the same ABCD key/value pairs in each matching layer."><defs><marker id="down" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7Z" fill="#686e68"/></marker><marker id="reuse" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7Z" fill="#3f6fa0"/></marker></defs>
+<text x="110" y="25" text-anchor="middle" font-size="21" fill="#252825">After turn 1</text>
+<text x="450" y="25" text-anchor="middle" font-size="21" fill="#252825">Turn 2</text>
+<text x="110" y="54" text-anchor="middle" font-size="16" fill="#252825">Already cached</text>
+<text x="450" y="54" text-anchor="middle" font-size="16" fill="#252825">Process E X Y Z</text>
+<rect x="381" y="65" width="30" height="30" rx="6" fill="#fce6cd" stroke="#d18a2a"/>
+<text x="396.0" y="86" text-anchor="middle" font-size="17" fill="#252825">E</text>
+<rect x="416" y="65" width="30" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="431.0" y="86" text-anchor="middle" font-size="17" fill="#252825">X</text>
+<rect x="451" y="65" width="30" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="466.0" y="86" text-anchor="middle" font-size="17" fill="#252825">Y</text>
+<rect x="486" y="65" width="30" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="501.0" y="86" text-anchor="middle" font-size="17" fill="#252825">Z</text>
+<path d="M450 100 L450 119" fill="none" stroke="#686e68" stroke-width="1.6" marker-end="url(#down)"/>
+<rect x="10" y="125" width="200" height="105" rx="6" fill="#fafbf9" stroke="#a0a6a0"/>
+<rect x="310" y="125" width="280" height="105" rx="6" fill="#fafbf9" stroke="#a0a6a0"/>
+<text x="110" y="150" text-anchor="middle" font-size="18" fill="#252825">Layer 1 cache</text>
+<text x="450" y="150" text-anchor="middle" font-size="18" fill="#252825">Layer 1</text>
+<rect x="28" y="173" width="32" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="44.0" y="194" text-anchor="middle" font-size="17" fill="#252825">A</text>
+<rect x="65" y="173" width="32" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="81.0" y="194" text-anchor="middle" font-size="17" fill="#252825">B</text>
+<rect x="102" y="173" width="32" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="118.0" y="194" text-anchor="middle" font-size="17" fill="#252825">C</text>
+<rect x="139" y="173" width="32" height="30" rx="6" fill="#fce6cd" stroke="#d18a2a"/>
+<text x="155.0" y="194" text-anchor="middle" font-size="17" fill="#252825">D</text>
+<text x="375" y="169" text-anchor="middle" font-size="14" fill="#3f6fa0">Reuse K/V</text>
+<text x="520" y="169" text-anchor="middle" font-size="14" fill="#4a8a4a">New K/V</text>
+<rect x="318" y="178" width="28" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="332.0" y="199" text-anchor="middle" font-size="17" fill="#252825">A</text>
+<rect x="351" y="178" width="28" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="365.0" y="199" text-anchor="middle" font-size="17" fill="#252825">B</text>
+<rect x="384" y="178" width="28" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="398.0" y="199" text-anchor="middle" font-size="17" fill="#252825">C</text>
+<rect x="417" y="178" width="28" height="30" rx="6" fill="#fce6cd" stroke="#d18a2a"/>
+<text x="431.0" y="199" text-anchor="middle" font-size="17" fill="#252825">D</text>
+<rect x="458" y="178" width="28" height="30" rx="6" fill="#fce6cd" stroke="#d18a2a"/>
+<text x="472.0" y="199" text-anchor="middle" font-size="17" fill="#252825">E</text>
+<rect x="491" y="178" width="28" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="505.0" y="199" text-anchor="middle" font-size="17" fill="#252825">X</text>
+<rect x="524" y="178" width="28" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="538.0" y="199" text-anchor="middle" font-size="17" fill="#252825">Y</text>
+<rect x="557" y="178" width="28" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="571.0" y="199" text-anchor="middle" font-size="17" fill="#252825">Z</text>
+<path d="M171 188 L316 193" fill="none" stroke="#3f6fa0" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#reuse)"/>
+<text x="259" y="176" text-anchor="middle" font-size="16" fill="#3f6fa0">reuse</text>
+<path d="M450 234 L450 258" fill="none" stroke="#686e68" stroke-width="1.6" marker-end="url(#down)"/>
+<rect x="10" y="265" width="200" height="105" rx="6" fill="#fafbf9" stroke="#a0a6a0"/>
+<rect x="310" y="265" width="280" height="105" rx="6" fill="#fafbf9" stroke="#a0a6a0"/>
+<text x="110" y="290" text-anchor="middle" font-size="18" fill="#252825">Layer 2 cache</text>
+<text x="450" y="290" text-anchor="middle" font-size="18" fill="#252825">Layer 2</text>
+<rect x="28" y="313" width="32" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="44.0" y="334" text-anchor="middle" font-size="17" fill="#252825">A</text>
+<rect x="65" y="313" width="32" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="81.0" y="334" text-anchor="middle" font-size="17" fill="#252825">B</text>
+<rect x="102" y="313" width="32" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="118.0" y="334" text-anchor="middle" font-size="17" fill="#252825">C</text>
+<rect x="139" y="313" width="32" height="30" rx="6" fill="#fce6cd" stroke="#d18a2a"/>
+<text x="155.0" y="334" text-anchor="middle" font-size="17" fill="#252825">D</text>
+<text x="375" y="309" text-anchor="middle" font-size="14" fill="#3f6fa0">Reuse K/V</text>
+<text x="520" y="309" text-anchor="middle" font-size="14" fill="#4a8a4a">New K/V</text>
+<rect x="318" y="318" width="28" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="332.0" y="339" text-anchor="middle" font-size="17" fill="#252825">A</text>
+<rect x="351" y="318" width="28" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="365.0" y="339" text-anchor="middle" font-size="17" fill="#252825">B</text>
+<rect x="384" y="318" width="28" height="30" rx="6" fill="#e8f0fa" stroke="#3f6fa0"/>
+<text x="398.0" y="339" text-anchor="middle" font-size="17" fill="#252825">C</text>
+<rect x="417" y="318" width="28" height="30" rx="6" fill="#fce6cd" stroke="#d18a2a"/>
+<text x="431.0" y="339" text-anchor="middle" font-size="17" fill="#252825">D</text>
+<rect x="458" y="318" width="28" height="30" rx="6" fill="#fce6cd" stroke="#d18a2a"/>
+<text x="472.0" y="339" text-anchor="middle" font-size="17" fill="#252825">E</text>
+<rect x="491" y="318" width="28" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="505.0" y="339" text-anchor="middle" font-size="17" fill="#252825">X</text>
+<rect x="524" y="318" width="28" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="538.0" y="339" text-anchor="middle" font-size="17" fill="#252825">Y</text>
+<rect x="557" y="318" width="28" height="30" rx="6" fill="#eef8ee" stroke="#4a8a4a"/>
+<text x="571.0" y="339" text-anchor="middle" font-size="17" fill="#252825">Z</text>
+<path d="M171 328 L316 333" fill="none" stroke="#3f6fa0" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#reuse)"/>
+<text x="259" y="316" text-anchor="middle" font-size="16" fill="#3f6fa0">reuse</text>
+<path d="M450 374 L450 395" fill="none" stroke="#686e68" stroke-width="1.6" marker-end="url(#down)"/>
+<rect x="340" y="401" width="220" height="37" rx="6" fill="#fff" stroke="#a0a6a0"/>
+<text x="450" y="425" text-anchor="middle" font-size="17" fill="#252825">Next answer token</text>
+<text x="110" y="405" text-anchor="middle" font-size="15" fill="#252825">Same values,</text>
+<text x="110" y="425" text-anchor="middle" font-size="15" fill="#252825">within each layer.</text>
+</svg>
