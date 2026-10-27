@@ -9,14 +9,12 @@
     <style>
       .theorem, .remark {
         margin: 2rem 0;
-        padding: 0.9rem 0;
-        border-top: 1px solid var(--text);
-        border-bottom: 1px solid var(--text);
+        padding: 1.25rem 1.5rem;
+        border-radius: 0.5rem;
+        background: var(--accent-soft);
       }
-      .theorem { font-style: italic; }
-      .theorem p:first-child, .remark p:first-child { margin-top: 0; }
+      .theorem h3, .remark h3 { margin: 0 0 0.75rem; }
       .theorem p:last-child, .remark p:last-child { margin-bottom: 0; }
-      .theorem .label, .remark .label { font-style: normal; font-weight: 700; }
       .aside-note { color: var(--muted); font-size: 0.95rem; font-style: italic; }
       .post-body { min-width: 0; }
       .post-body mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; padding-block: 0.3rem; }
@@ -48,7 +46,8 @@
         <p>The same is true of any sum of sinusoids, with one more past sample for each component:</p>
 
         <div class="theorem" id="sinusoid-theorem">
-          <p><span class="label">Theorem.</span> For constant amplitudes \(A_i\) and frequencies \(\omega_i\), let</p>
+          <h3>A sum of \(n\) complex sinusoids is AR(\(n\))</h3>
+          <p>For constant amplitudes \(A_i\) and frequencies \(\omega_i\), let</p>
           \[ y_t=\sum_{i=1}^{n}A_i e^{j\omega_i t}, \qquad t=0,1,2,\ldots \]
           <p>Then every sample is a fixed linear combination of the previous \(n\):</p>
           \[ y_t=\sum_{k=1}^{n}b_k\,y_{t-k},\qquad t\geq n, \]
@@ -57,7 +56,7 @@
           <p>In particular, the roots of \(P(z)\) are \(e^{j\omega_i}\): their angles are the frequencies.</p>
         </div>
 
-        <p>The theorem is useful because we can run it backwards. Given samples of an unknown signal, fit the coefficients \(b_k\), find the roots of \(P(z)\), and read off the frequencies. This is <strong>Prony's method</strong>, published by Gaspard de Prony in 1795. An FFT can only separate frequencies about \(f_s/N\) apart, where \(N\) is the number of samples; on clean data, Prony's method recovers \(n\) frequencies exactly from \(2n\) samples. The same idea underlies linear prediction in speech coding and modern high-resolution frequency estimators.</p>
+        <p>This result is useful because we can run it backwards. Given samples of an unknown signal, fit the coefficients \(b_k\), find the roots of \(P(z)\), and read off the frequencies. This is <strong>Prony's method</strong>, published by Gaspard de Prony in 1795. An FFT can only separate frequencies about \(f_s/N\) apart, where \(N\) is the number of samples; on clean data, Prony's method recovers \(n\) frequencies exactly from \(2n\) samples. The same idea underlies linear prediction in speech coding and modern high-resolution frequency estimators.</p>
         <p class="aside-note">I first worked this out from scratch in 2014, and only afterwards found out that Prony had got there about 220 years earlier. This post is a cleaned-up version of those old notes.</p>
         <p>We will build up the proof one sinusoid at a time: one, then two, then \(n\). Throughout, we assume there is <strong>no noise</strong>: an idealisation that lets us see the relationship exactly.</p>
 
@@ -90,10 +89,11 @@
         \end{aligned} \]
         <p>Rearranging,</p>
         \[ y_t=(a_1+a_2)y_{t-1}-a_1a_2y_{t-2}, \qquad t\geq 2. \tag{2}\label{eq:ar2} \]
-        <p>Two complex sinusoids give an <strong>AR(2)</strong> relation. This matches the theorem: \((z-a_1)(z-a_2)=z^2-(a_1+a_2)z+a_1a_2\), so \(b_1=a_1+a_2\) and \(b_2=-a_1a_2\).</p>
+        <p>Two complex sinusoids give an <strong>AR(2)</strong> relation. This matches the result at the top: \((z-a_1)(z-a_2)=z^2-(a_1+a_2)z+a_1a_2\), so \(b_1=a_1+a_2\) and \(b_2=-a_1a_2\).</p>
 
         <div class="remark" id="real-cosine">
-          <p><span class="label">Check: one real cosine.</span> Now we can explain the cosine example from the start. Write the cosine as two complex sinusoids:</p>
+          <h3>Check: one real cosine</h3>
+          <p>Now we can explain the cosine example from the start. Write the cosine as two complex sinusoids:</p>
           \[ \cos(\omega t)=\tfrac12 e^{j\omega t}+\tfrac12 e^{-j\omega t}. \]
           <p>This is the two-sinusoid case with \(\omega_1=\omega\) and \(\omega_2=-\omega\). Therefore</p>
           \[ a_1+a_2=e^{j\omega}+e^{-j\omega}=2\cos\omega,
@@ -153,7 +153,7 @@
         \[ \Bigl(1-\sum_{k=1}^{n}b_k z^{-k}\Bigr)y_t=y_t-\sum_{k=1}^{n}b_k y_{t-k}=0. \]
         <p>Therefore,</p>
         \[ y_t=\sum_{k=1}^{n}b_k y_{t-k}, \qquad t\geq n. \tag{4}\label{eq:arn} \]
-        <p>This is the AR(\(n\)) relation in the theorem.</p>
+        <p>This is the AR(\(n\)) relation from the top of the post.</p>
 
         <h3>The roots are the frequencies</h3>
         <p>Finally, treat the product as an ordinary polynomial and multiply by \(z^n\) to clear the negative powers. Each factor \(1-a_iz^{-1}\) becomes \(z-a_i\):</p>
