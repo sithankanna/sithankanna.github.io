@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Three samples of a cosine are enough to find its frequency. Why every sum of n sinusoids obeys an exact AR(n) recurrence, and how Prony's method uses it to recover frequencies.">
+    <title>Finding Frequencies Without an FFT: Sinusoids as Autoregressive Models</title>
+    <link rel="stylesheet" href="../css/site.css">
+    <style>
+      .theorem, .remark {
+        margin: 2rem 0;
+        padding: 0.9rem 0;
+        border-top: 1px solid var(--text);
+        border-bottom: 1px solid var(--text);
+      }
+      .theorem { font-style: italic; }
+      .theorem p:first-child, .remark p:first-child { margin-top: 0; }
+      .theorem p:last-child, .remark p:last-child { margin-bottom: 0; }
+      .theorem .label, .remark .label { font-style: normal; font-weight: 700; }
+      .aside-note { color: var(--muted); font-size: 0.95rem; font-style: italic; }
+      .post-body { min-width: 0; }
+      .post-body mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; padding-block: 0.3rem; }
+    </style>
+    <script src="../js/mathjax-config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script defer src="../js/toc.js"></script>
+  </head>
+  <body>
+    <header class="site-header"><div class="shell"><a class="site-name" href="../index.html">Sithan Kanna</a></div></header>
+    <main class="shell layout">
+      <aside class="sidebar" aria-label="Contents"><nav>
+        <h2>Contents</h2>
+        <a href="#one">1. One Sinusoid</a>
+        <a href="#two">2. Two Sinusoids</a>
+        <a href="#many">3. Any Number of Sinusoids</a>
+        <a href="#estimate">4. Estimating the Frequencies</a>
+        <a href="#practical">5. Practical Considerations</a>
+      </nav></aside>
+      <article class="post-body">
+        <h1>Finding Frequencies Without an FFT: Sinusoids as Autoregressive Models</h1>
+
+        <p>Suppose you have three consecutive samples \(y_0, y_1, y_2\) of a cosine, and you know nothing else: not its frequency, amplitude or phase. With no noise, you can still recover the frequency exactly:</p>
+        \[ \cos\omega=\frac{y_0+y_2}{2y_1}. \]
+        <p>No FFT, no long recording. (We just need \(y_1\neq 0\).) This works because every cosine obeys the same simple recurrence,</p>
+        \[ y_t=2\cos(\omega)\,y_{t-1}-y_{t-2}, \qquad t\geq 2, \]
+        <p>and setting \(t=2\) gives the formula above. The cosine satisfies an <strong>AR(2) relation</strong>: each sample is a fixed linear combination of the previous two, with a coefficient that depends only on the frequency.</p>
+        <p>The same is true of any sum of sinusoids, with one more past sample for each component:</p>
+
+        <div class="theorem" id="sinusoid-theorem">
+          <p><span class="label">Theorem.</span> For constant amplitudes \(A_i\) and frequencies \(\omega_i\), let</p>
+          \[ y_t=\sum_{i=1}^{n}A_i e^{j\omega_i t}, \qquad t=0,1,2,\ldots \]
+          <p>Then every sample is a fixed linear combination of the previous \(n\):</p>
+          \[ y_t=\sum_{k=1}^{n}b_k\,y_{t-k},\qquad t\geq n, \]
+          <p>where the coefficients \(b_k\) come from expanding the polynomial</p>
+          \[ P(z)=\prod_{i=1}^{n}\bigl(z-e^{j\omega_i}\bigr)=z^n-\sum_{k=1}^{n}b_k z^{n-k}. \]
+          <p>In particular, the roots of \(P(z)\) are \(e^{j\omega_i}\): their angles are the frequencies.</p>
+        </div>
+
+        <p>The theorem is useful because we can run it backwards. Given samples of an unknown signal, fit the coefficients \(b_k\), find the roots of \(P(z)\), and read off the frequencies. This is <strong>Prony's method</strong>, published by Gaspard de Prony in 1795. An FFT can only separate frequencies about \(f_s/N\) apart, where \(N\) is the number of samples; on clean data, Prony's method recovers \(n\) frequencies exactly from \(2n\) samples. The same idea underlies linear prediction in speech coding and modern high-resolution frequency estimators.</p>
+        <p class="aside-note">I first worked this out from scratch in 2014, and only afterwards found out that Prony had got there about 220 years earlier. This post is a cleaned-up version of those old notes.</p>
+        <p>We will build up the proof one sinusoid at a time: one, then two, then \(n\). Throughout, we assume there is <strong>no noise</strong>: an idealisation that lets us see the relationship exactly.</p>
+
+        <h2 class="section" id="one">One Sinusoid</h2>
+        <p>Consider one complex sinusoid:</p>
+        \[ y_t=A_1e^{j\omega_1 t}. \]
+        <p>Here \(j^2=-1\), and \(\omega_1\) is the angular frequency in radians per sample. The amplitude \(A_1=|A_1|e^{j\phi_1}\) is a complex constant, so its magnitude sets the size of the oscillation and its angle sets the starting phase. For example, the real part of \(y_t\) is \(|A_1|\cos(\omega_1 t+\phi_1)\).</p>
+        <p>The key fact is that <strong>delaying a complex sinusoid just multiplies it by a constant</strong>. For \(t\geq 1\),</p>
+        \[ y_{t-1}=A_1e^{j\omega_1(t-1)}=e^{-j\omega_1}A_1e^{j\omega_1t}=e^{-j\omega_1}y_t. \]
+        <p>Let \(a_1=e^{j\omega_1}\). Multiplying both sides by \(a_1\) gives</p>
+        \[ y_t=a_1y_{t-1}. \tag{1}\label{eq:ar1} \]
+        <p>This is an <strong>autoregressive relation of order one, or AR(1)</strong>: the current sample is a fixed multiple of the previous one. Equivalently, the combination \(y_t-a_1y_{t-1}\) is zero. Subtracting \(a_1\) times the previous sample <em>cancels</em> the sinusoid.</p>
+
+        <h2 class="section" id="two">Two Sinusoids</h2>
+        <p>Now add a second sinusoid:</p>
+        \[ y_t=A_1e^{j\omega_1t}+A_2e^{j\omega_2t}. \]
+        <p>Apply the same subtraction as before, with \(a_1=e^{j\omega_1}\) and \(a_2=e^{j\omega_2}\). Call the result \(v_t\):</p>
+        \[ \begin{aligned}
+        v_t&amp;=y_t-a_1y_{t-1}\\
+        &amp;=\underbrace{\bigl(A_1-a_1e^{-j\omega_1}A_1\bigr)}_{=\,0}e^{j\omega_1t}
+          +\bigl(A_2-a_1e^{-j\omega_2}A_2\bigr)e^{j\omega_2t}\\
+        &amp;=\bar A_2\,e^{j\omega_2t}, \qquad \bar A_2=\bigl(1-a_1/a_2\bigr)A_2.
+        \end{aligned} \]
+        <p>The first sinusoid has cancelled. What remains is one sinusoid at \(\omega_2\), with a new constant amplitude \(\bar A_2\). So the one-sinusoid argument applies to \(v_t\), and subtracting \(a_2\) times its previous sample cancels it too:</p>
+        \[ v_t-a_2v_{t-1}=0, \qquad t\geq 2. \]
+        <p>Substitute \(v_t=y_t-a_1y_{t-1}\) to write this in terms of the original signal:</p>
+        \[ \begin{aligned}
+        0&amp;=(y_t-a_1y_{t-1})-a_2(y_{t-1}-a_1y_{t-2})\\
+         &amp;=y_t-(a_1+a_2)y_{t-1}+a_1a_2y_{t-2}.
+        \end{aligned} \]
+        <p>Rearranging,</p>
+        \[ y_t=(a_1+a_2)y_{t-1}-a_1a_2y_{t-2}, \qquad t\geq 2. \tag{2}\label{eq:ar2} \]
+        <p>Two complex sinusoids give an <strong>AR(2)</strong> relation. This matches the theorem: \((z-a_1)(z-a_2)=z^2-(a_1+a_2)z+a_1a_2\), so \(b_1=a_1+a_2\) and \(b_2=-a_1a_2\).</p>
+
+        <div class="remark" id="real-cosine">
+          <p><span class="label">Check: one real cosine.</span> Now we can explain the cosine example from the start. Write the cosine as two complex sinusoids:</p>
+          \[ \cos(\omega t)=\tfrac12 e^{j\omega t}+\tfrac12 e^{-j\omega t}. \]
+          <p>This is the two-sinusoid case with \(\omega_1=\omega\) and \(\omega_2=-\omega\). Therefore</p>
+          \[ a_1+a_2=e^{j\omega}+e^{-j\omega}=2\cos\omega,
+          \qquad a_1a_2=e^{j\omega}e^{-j\omega}=1, \]
+          <p>and \(\eqref{eq:ar2}\) becomes \(y_t=2\cos(\omega)\,y_{t-1}-y_{t-2}\). The amplitudes never entered, so the same recurrence holds for any \(B\cos(\omega t+\phi)\).</p>
+        </div>
+
+        <h2 class="section" id="many">Any Number of Sinusoids</h2>
+        <p>With \(n\) sinusoids, we do exactly what we did for two: cancel one sinusoid, notice that we are left with the same problem with one fewer, and repeat.</p>
+
+        <h3>Cancel one sinusoid</h3>
+        <p>To keep track of how many sinusoids are left, write the signal with a superscript:</p>
+        \[ y_t^{[n]}=\sum_{i=1}^{n}A_i e^{j\omega_i t}, \qquad a_i=e^{j\omega_i}. \]
+        <p>The superscript \([n]\) says that \(n\) sinusoids remain. As before, delay by one sample, multiply by \(a_1\), and subtract. Each term is delayed separately, and delaying term \(i\) multiplies it by \(e^{-j\omega_i}=1/a_i\):</p>
+        \[ \begin{aligned}
+        y_t^{[n-1]}&amp;=y_t^{[n]}-a_1y_{t-1}^{[n]}\\
+        &amp;=\sum_{i=1}^{n}\Bigl(1-\frac{a_1}{a_i}\Bigr)A_i e^{j\omega_i t}\\
+        &amp;=\sum_{i=2}^{n}\bar A_i\, e^{j\omega_i t},
+        \qquad \bar A_i=\Bigl(1-\frac{a_1}{a_i}\Bigr)A_i.
+        \end{aligned} \]
+        <p>For \(i=1\), the factor is \(1-a_1/a_1=0\), so the first sinusoid disappears. The other \(n-1\) sinusoids keep their frequencies; only their amplitudes change. In the two-sinusoid section, this was \(v_t\).</p>
+
+        <h3>Repeat until nothing is left</h3>
+        <p>Notice that \(y_t^{[n-1]}\) is the same kind of signal we started with, just with one fewer sinusoid. So we can apply the same step to it, this time with \(a_2\) to cancel the sinusoid at \(\omega_2\). In general, the \(r\)th step cancels the sinusoid at \(\omega_r\):</p>
+        \[ y_t^{[n-r]}=y_t^{[n-r+1]}-a_r\,y_{t-1}^{[n-r+1]},
+        \qquad r=1,\ldots,n. \tag{3}\label{eq:cancellation} \]
+        <p>Each step uses one more past sample, so after \(r\) steps the result is valid for \(t\geq r\). After all \(n\) steps, no sinusoids are left:</p>
+        \[ y_t^{[0]}=0, \qquad t\geq n. \]
+
+        <h3>Unwind back to the original signal</h3>
+        <p>We now have a statement about \(y_t^{[0]}\), but we want one about the original signal \(y_t^{[n]}\). To unwind the steps, it helps to write the delay as an operator. Let \(z^{-1}\) shift a sequence back by one sample:</p>
+        \[ z^{-1}y_t=y_{t-1}, \qquad z^{-2}y_t=y_{t-2}. \]
+        <p>Each step in \(\eqref{eq:cancellation}\) then becomes a single factor:</p>
+        \[ y_t^{[n-r]}=(1-a_rz^{-1})\,y_t^{[n-r+1]}. \]
+        <p>Start from \(y_t^{[0]}=0\) and substitute one step at a time:</p>
+        \[ \begin{aligned}
+        y_t^{[0]}&amp;=0\\
+        (1-a_nz^{-1})\,y_t^{[1]}&amp;=0\\
+        (1-a_nz^{-1})(1-a_{n-1}z^{-1})\,y_t^{[2]}&amp;=0\\
+        &amp;\;\;\vdots\\
+        \prod_{i=1}^{n}(1-a_iz^{-1})\,y_t^{[n]}&amp;=0.
+        \end{aligned} \]
+        <p>The last line is about the original signal. Each factor \(1-a_iz^{-1}\) removes the sinusoid at \(\omega_i\), and the order of the factors does not matter: we could have cancelled the sinusoids in any order.</p>
+
+        <h3>Expand the product</h3>
+        <p>To read off the recurrence, multiply out the factors. For two sinusoids,</p>
+        \[ (1-a_1z^{-1})(1-a_2z^{-1})=1-(a_1+a_2)z^{-1}+a_1a_2z^{-2}, \]
+        <p>which is exactly \(\eqref{eq:ar2}\): the coefficient of \(z^{-k}\) multiplies \(y_{t-k}\). With all \(n\) factors,</p>
+        \[ \begin{aligned}
+        \prod_{i=1}^{n}(1-a_iz^{-1})
+        &amp;=1-\Bigl(\sum_{i}a_i\Bigr)z^{-1}
+        +\Bigl(\sum_{i&lt;k}a_ia_k\Bigr)z^{-2}-\cdots
+        +(-1)^n\Bigl(\prod_{i}a_i\Bigr)z^{-n}\\
+        &amp;=1-\sum_{k=1}^{n}b_k z^{-k}.
+        \end{aligned} \]
+        <p>The \(b_k\) are just the coefficients of this expansion: \(b_1=\sum_i a_i\), \(b_2=-\sum_{i&lt;k}a_ia_k\), and so on, down to \(b_n=(-1)^{n+1}\prod_i a_i\). Writing \(y_t\) for \(y_t^{[n]}\) again and turning the delays back into samples,</p>
+        \[ \Bigl(1-\sum_{k=1}^{n}b_k z^{-k}\Bigr)y_t=y_t-\sum_{k=1}^{n}b_k y_{t-k}=0. \]
+        <p>Therefore,</p>
+        \[ y_t=\sum_{k=1}^{n}b_k y_{t-k}, \qquad t\geq n. \tag{4}\label{eq:arn} \]
+        <p>This is the AR(\(n\)) relation in the theorem.</p>
+
+        <h3>The roots are the frequencies</h3>
+        <p>Finally, treat the product as an ordinary polynomial and multiply by \(z^n\) to clear the negative powers. Each factor \(1-a_iz^{-1}\) becomes \(z-a_i\):</p>
+        \[ P(z)=z^n\prod_{i=1}^{n}(1-a_iz^{-1})=\prod_{i=1}^{n}(z-a_i)=z^n-\sum_{k=1}^{n}b_k z^{n-k}.
+        \tag{5}\label{eq:polynomial} \]
+        <p>Its roots are \(a_i=e^{j\omega_i}\), so the angle of each root is one of the frequencies. One sinusoid gives AR(1), two give AR(2), and \(n\) give AR(\(n\)), and in every case the frequencies are hidden in the roots.</p>
+
+        <h2 class="section" id="estimate">Estimating the Frequencies</h2>
+        <p>In practice, we do not know the frequencies or the coefficients. We start with samples \(y_0,\ldots,y_{N-1}\), choose the number of components \(n\), and write \(\eqref{eq:arn}\) once for each \(t=n,\ldots,N-1\):</p>
+        \[ \begin{bmatrix}
+        y_{n-1}&amp;y_{n-2}&amp;\cdots&amp;y_0\\
+        y_n&amp;y_{n-1}&amp;\cdots&amp;y_1\\
+        \vdots&amp;\vdots&amp; &amp;\vdots\\
+        y_{N-2}&amp;y_{N-3}&amp;\cdots&amp;y_{N-n-1}
+        \end{bmatrix}
+        \begin{bmatrix}b_1\\b_2\\\vdots\\b_n\end{bmatrix}
+        =\begin{bmatrix}y_n\\y_{n+1}\\\vdots\\y_{N-1}\end{bmatrix}. \]
+        <p>This is linear in the unknown \(b_k\). For exact data with distinct frequencies and nonzero amplitudes, \(2n\) samples give enough equations; with more, we solve by least squares. Then:</p>
+        <ol>
+          <li>Find the roots \(\hat a_i\) of \(P(z)\) in \(\eqref{eq:polynomial}\).</li>
+          <li>Read off the frequencies:
+            \[ \hat\omega_i=\arg(\hat a_i), \qquad \hat f_i=\frac{f_s}{2\pi}\hat\omega_i, \]
+            where \(f_s\) is the sampling frequency. Frequencies are only identified modulo \(2\pi\) radians per sample (or modulo \(f_s\) in hertz).</li>
+          <li>With the frequencies known, \(y_t=\sum_i A_i e^{j\hat\omega_i t}\) is linear in the amplitudes. Solve it for \(A_i\); their magnitudes and angles give the amplitudes and phases.</li>
+        </ol>
+
+        <h2 class="section" id="practical">Practical Considerations</h2>
+        <p>Real signals such as audio tones or mechanical vibrations are sums of real sines and cosines. Each real component is two complex sinusoids, as in the cosine check, so \(m\) real components need an AR(\(2m\)) model, with real coefficients.</p>
+        <p>The derivation also assumes an exact sum of sinusoids and a known number of components. Noise makes the recurrence approximate, and the estimated roots can move off the unit circle. Closely spaced frequencies make the problem ill-conditioned, so more samples do not automatically remove the sensitivity to noise. Choosing \(n\) is itself a modelling decision.</p>
+      </article>
+    </main>
+  </body>
+</html>
